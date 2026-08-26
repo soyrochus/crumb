@@ -8,7 +8,7 @@
 **Target platforms:** macOS and Linux
 **Out-of-scope platform:** Windows
 **Primary architecture:** Bun + TypeScript + native operating-system WebView
-**Desktop binding:** `webview-bun`
+**Desktop binding:** `@nativewindow/webview`
 **Distribution model:** Single self-contained executable per target platform and architecture
 **Application class:** Local, view-only desktop file explorer
 
@@ -235,7 +235,7 @@ RPC inputs must always be runtime-validated even though TypeScript types exist.
 
 ## 6.3 Native WebView
 
-Use `webview-bun` as the desktop binding.
+Use `@nativewindow/webview` as the desktop binding.
 
 The implementation must use the native WebView technology available on each supported operating system rather than package Chromium.
 
@@ -244,9 +244,11 @@ The exact native backend is platform-dependent:
 | Platform | Native WebView expectation                                                                               |
 | -------- | -------------------------------------------------------------------------------------------------------- |
 | macOS    | WebKit/WKWebView                                                                                         |
-| Linux    | Native WebKit-based WebView, such as WebKitGTK, as supported by `webview-bun` and the target environment |
+| Linux    | WebKitGTK through the native Wayland backend supported by `@nativewindow/webview` and the target environment |
 
 The application must not assume that macOS-specific WebKit APIs are available on Linux.
+
+Linux must run on native Wayland. It must not require or fall back to X11 or XWayland.
 
 Platform-specific window and WebView behaviour must be isolated behind the desktop binding or a small host abstraction.
 
@@ -254,7 +256,7 @@ Platform-specific window and WebView behaviour must be isolated behind the deskt
 
 # 7. Desktop Window
 
-Use `webview-bun`.
+Use `@nativewindow/webview`.
 
 The native window contains a system WebView.
 
@@ -324,7 +326,7 @@ Pango
 GDK-Pixbuf
 ```
 
-The exact dependency list depends on the `webview-bun` backend and build configuration.
+The initial Linux binding requires GTK 3 and WebKitGTK 4.1. Crumb must force the Wayland GDK backend and must not connect to an X server or fall back to X11/XWayland. Distribution GTK/WebKitGTK packages may retain dormant linkage to X11 compatibility libraries; this does not permit selecting their X11 backend.
 
 The application must fail with a clear startup error if a required native WebView library is unavailable.
 
@@ -1998,7 +2000,7 @@ Compile:
 ```text
 Bun host
 shared application code
-webview-bun
+@nativewindow/webview
 embedded UI
 ```
 
@@ -2681,7 +2683,7 @@ Keep external dependencies minimal.
 Expected production dependency:
 
 ```text
-webview-bun
+@nativewindow/webview
 ```
 
 Avoid adding dependencies for functionality already supplied adequately by:
@@ -2859,8 +2861,8 @@ The first version is complete when all of the following hold:
 
 * application is implemented in TypeScript;
 * Bun is the application runtime;
-* `webview-bun` provides the desktop window;
-* the UI uses the native operating-system WebView on macOS and Linux;
+* `@nativewindow/webview` provides the desktop window;
+* the UI uses the native operating-system WebView on macOS and Linux, with native Wayland and no X11/XWayland fallback on Linux;
 * there is no Electron dependency;
 * there is no Node runtime dependency;
 * there is no local HTTP server;
@@ -2974,7 +2976,7 @@ HTML
 CSS
 UI TypeScript
 Host TypeScript
-webview-bun
+@nativewindow/webview
 Bun runtime
 application assets
         │
