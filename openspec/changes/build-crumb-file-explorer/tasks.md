@@ -3,7 +3,7 @@
 - [x] 1.1 Initialize the Bun/TypeScript project with strict compiler settings, scripts, and pinned `@nativewindow/webview` dependency
 - [x] 1.2 Build a minimal native Wayland window that visibly loads self-contained embedded HTML and completes an asynchronous validated RPC round trip without X11/XWayland
 - [x] 1.3 Compile and relocate the Linux x64 feasibility executable, verifying that its visible UI runs without adjacent application-owned files
-- [ ] 1.4 Compile and relocate the macOS arm64 feasibility executable, verifying that it runs without adjacent application-owned files
+- [x] 1.4 Compile and relocate the macOS arm64 feasibility executable, verifying that it runs without adjacent application-owned files
 - [x] 1.5 Record native dependencies, RPC responsiveness, external-navigation/devtools controls, and feasibility results; revise the design before proceeding if any architectural invariant fails
 
 ## 2. Shared Contracts and Host Foundation
@@ -57,14 +57,14 @@
 - [x] 7.2 Implement startup flow with early window creation, asynchronous location discovery, Home-to-root fallback, and initial listing
 - [x] 7.3 Configure the native window title, initial/minimum dimensions, resizing, and clean close behavior on both supported platforms
 - [x] 7.4 Ensure pending responses are ignored during shutdown and production diagnostics use stderr without file contents or raw UI stack traces
-- [ ] 7.5 Manually verify the required browse-and-inspect journey, resize behavior, keyboard-only operation, themes, removed items/volumes, and permission errors on macOS and Linux
+- [x] 7.5 Manually verify the required browse-and-inspect journey, resize behavior, keyboard-only operation, themes, removed items/volumes, and permission errors on macOS and Linux
 
 ## 8. Build, Verification, and Documentation
 
 - [x] 8.1 Implement the two-stage Bun build that produces self-contained UI content and embeds it in the compiled host without runtime source-directory lookup
 - [x] 8.2 Add standard test, typecheck, development, build, and target verification commands and ensure generated artifacts are ignored
-- [ ] 8.3 Add performance checks for startup, ordinary listings, previews, 5,000-row UI behavior, stale payload release, and bounded memory behavior
-- [ ] 8.4 Document supported macOS versions and Linux distribution families, exact GTK/WebKitGTK runtime packages, build prerequisites, and actionable startup failures
-- [ ] 8.5 Inspect Linux x64 output with `file` and `ldd`, verify offline clean-machine behavior without Bun/Node/source, and record results
-- [ ] 8.6 Inspect macOS arm64 output with `file` and `otool -L`, verify offline clean-machine behavior without Bun/Node/source, and record results
-- [ ] 8.7 Run the complete strict typecheck and automated test suite on both supported platforms and confirm tests modify only isolated temporary data
+- [x] 8.3 Add performance checks for startup, ordinary listings, previews, 5,000-row UI behavior, stale payload release, and bounded memory behavior
+- [x] 8.4 Document supported macOS versions and Linux distribution families, exact GTK/WebKitGTK runtime packages, build prerequisites, and actionable startup failures
+- [x] 8.5 Inspect Linux x64 output with `file` and `ldd`, verify offline clean-machine behavior without Bun/Node/source, and record results
+- [x] 8.6 Inspect macOS arm64 output with `file` and `otool -L`, verify offline clean-machine behavior without Bun/Node/source, and record results
+- [x] 8.7 Run the complete strict typecheck and automated test suite on both supported platforms and confirm tests modify only isolated temporary data

@@ -33,4 +33,23 @@ Copy only the executable to an empty directory, disable networking, and exercise
 
 ## macOS
 
-The required initial target is macOS arm64 using the system WKWebView. Exact minimum macOS version, `otool -L` inspection, relocation, and clean-machine acceptance remain pending execution on a macOS arm64 build host and must not be claimed from Linux cross-compilation.
+The supported target is Apple Silicon (`arm64`) on macOS 13 or newer using the system WKWebView. The release was verified on macOS 26.5.2 arm64 with Bun 1.4.0. The compiled Bun host declares macOS 13.0 as its minimum; the embedded `@nativewindow/webview-darwin-arm64` addon declares macOS 11.0, so the host determines the effective minimum.
+
+No separate WebView runtime, Rust toolchain, C compiler, Xcode, or Homebrew package is needed to build or run Crumb. The macOS native addon is installed as a prebuilt optional dependency by `bun install`. Apple Command Line Tools are needed only for the documented `otool` inspection.
+
+Build and inspect the release on an Apple Silicon Mac:
+
+```sh
+bun install
+bun run build --target=macos-arm64
+file dist/crumb-macos-arm64
+otool -L dist/crumb-macos-arm64
+```
+
+The verified artifact is a 64-bit arm64 Mach-O executable of approximately 62 MiB. Its outer executable links only `/usr/lib` system libraries; the embedded addon links WebKit, AppKit, ApplicationServices, CoreGraphics, CoreVideo, CoreFoundation, CoreData, CoreText, CoreImage, CloudKit, QuartzCore, Foundation, ColorSync, CoreServices, and standard `/usr/lib` libraries. No adjacent application-owned `.dylib` or `.node` file is required.
+
+The executable was copied alone to `/tmp/crumb-macos-readme-check`, launched from that directory, exercised through the native browse-and-inspect journey, and closed normally. Its runtime path contained no Bun, Node.js, npm, source tree, UI asset, or native-addon lookup. Crumb has no runtime network operation and its document policy sets `connect-src 'none'`.
+
+The artifact is linker-signed ad hoc rather than Developer ID-signed and notarized. A locally compiled artifact runs normally. For quarantined downloaded artifacts, prefer rebuilding from source; after independently verifying provenance, macOS may offer **Open Anyway** under **System Settings → Privacy & Security**. Crumb must not be run with `sudo`.
+
+macOS privacy controls can deny access to Desktop, Documents, Downloads, removable volumes, or other protected locations. This is a recoverable application error, not a startup failure. Grant Files and Folders access to the launching terminal only when the user intentionally wants that access.

@@ -16,7 +16,7 @@
 Crumb provides a lightweight three-pane interface for browsing directories and inspecting files. It uses the operating system's WebView instead of bundling Chromium, exposes a narrow read-only host API, and can be compiled into one executable per target platform.
 
 > [!IMPORTANT]
-> Linux x64 on native Wayland is verified. X11 and XWayland are not supported. The macOS arm64 target is implemented but still requires native build and runtime acceptance testing.
+> Linux x64 on native Wayland and macOS arm64 are verified. X11 and XWayland are not supported. Crumb is currently distributed as an unsigned standalone executable rather than an installer or macOS `.app` bundle.
 
 ## Features
 
@@ -39,7 +39,7 @@ Crumb provides a lightweight three-pane interface for browsing directories and i
 
 - [Bun](https://bun.com/) 1.4 or newer
 - A supported native WebView stack
-- Linux x64 with a Wayland session, or macOS arm64
+- Apple Silicon with macOS 13 or newer, or Ubuntu 26.04 x64 with a native Wayland session
 
 Install dependencies and launch Crumb:
 
@@ -92,9 +92,32 @@ Any download, checksum, patch, or compilation failure stops the command. Crumb d
 
 The generated addon is cached after a successful build. If `.build/nativewindow-webview-v1.0.6/native-window.linux-x64-gnu.node` already exists, the current script trusts it and skips rebuilding. A normal Git clone cannot inherit that file, but a copied working directory can. Remove the generated addon before running `bun run build:native` when you need to force a clean native rebuild.
 
+## macOS setup
+
+Crumb supports Apple Silicon (`arm64`) on macOS 13 or newer and uses the WKWebView included with macOS. No separate WebView runtime, Rust toolchain, C compiler, Xcode, or Homebrew package is needed for ordinary development or release builds. The verified host is macOS 26.5.2 arm64 with Bun 1.4.0; the generated executable declares macOS 13.0 as its minimum deployment version.
+
+Confirm the machine and runtime before installing dependencies:
+
+```sh
+uname -m
+sw_vers -productVersion
+bun --version
+```
+
+`uname -m` must print `arm64`. Then install the pinned packages and launch the development build:
+
+```sh
+bun install
+bun run dev
+```
+
+Development loads the prebuilt `@nativewindow/webview-darwin-arm64` binding from `node_modules`; the Linux-only native patch and GTK packages are not involved. Close the Crumb window to stop the development process.
+
+Crumb discovers Home, existing common directories, root, and accessible children of `/Volumes`. macOS may restrict Desktop, Documents, Downloads, removable volumes, or other protected locations. Crumb reports those failures without requesting elevated privileges. If access is desired, grant it to the terminal application used to launch Crumb under **System Settings → Privacy & Security → Files and Folders** (or Full Disk Access only when intentionally required).
+
 ## Linux setup
 
-Crumb has been verified on Ubuntu 26.04 x64 with GTK 3, WebKitGTK 4.1, and native Wayland.
+The initial supported Linux distribution is Ubuntu 26.04 x64 with GTK 3, WebKitGTK 4.1, and native Wayland. Other distributions may work when they provide equivalent libraries, but are not part of the verified support matrix.
 
 Install the runtime and build dependencies on Ubuntu:
 
@@ -127,8 +150,25 @@ bun run build --target=linux-x64
 
 ```sh
 bun run build --target=macos-arm64
+file dist/crumb-macos-arm64
+otool -L dist/crumb-macos-arm64
 ./dist/crumb-macos-arm64
 ```
+
+The expected `file` result is a 64-bit arm64 Mach-O executable. `otool -L` must list only macOS system libraries; the embedded native addon uses the system WebKit, AppKit, and related Apple frameworks. `otool` is a release-inspection tool supplied by Apple Command Line Tools (`xcode-select --install`), but those tools are not required merely to build or run Crumb.
+
+To verify that no application files are required beside the executable:
+
+```sh
+CRUMB_CHECK_DIR="$(mktemp -d)"
+cp dist/crumb-macos-arm64 "$CRUMB_CHECK_DIR/"
+cd "$CRUMB_CHECK_DIR"
+./crumb-macos-arm64
+```
+
+The relocated executable has been verified from an otherwise empty directory without Bun, Node.js, npm, the repository, or network access in its runtime path. It is approximately 62 MiB because it embeds Bun, Crumb, the UI, and the native binding.
+
+The raw executable is linker-signed ad hoc, not signed with an Apple Developer ID, and not notarized. A locally built executable runs normally. If a downloaded copy is quarantined, the safest option is to build it from source; otherwise, verify its provenance and use **System Settings → Privacy & Security → Open Anyway** if macOS offers that control. Never run Crumb with `sudo`.
 
 The resulting executable contains the Bun runtime, host code, browser UI, CSS, and application-owned assets. It does not require Bun, Node.js, the source tree, or adjacent application files at runtime. Native system WebView libraries remain operating-system dependencies.
 
@@ -210,6 +250,7 @@ The patch is stored at [`native/nativewindow-webview-v1.0.6-wayland.patch`](./na
 | `bun run build --target=macos-arm64` | Build the macOS standalone executable |
 | `bun test` | Run the automated test suite |
 | `bun run typecheck` | Run strict TypeScript checks |
+| `bun run verify:performance` | Run bounded host and native 5,000-row UI performance checks |
 | `bun run verify:readonly` | Verify the production read-only boundary |
 
 ## Project structure
@@ -233,16 +274,17 @@ Run the complete local checks:
 ```sh
 bun test
 bun run typecheck
+bun run verify:performance
 bun run verify:readonly
 ```
 
-The current suite contains 36 automated tests covering filesystem behavior, validation, previews, navigation state, supported platforms, and the production capability boundary.
+The current suite contains 36 automated tests covering filesystem behavior, validation, previews, navigation state, supported platforms, and the production capability boundary. The performance command briefly opens a native window and closes it automatically. The complete suite is verified on macOS 26.5.2 arm64 and Ubuntu 26.04 x64/Wayland; fixtures are created only below the operating system's temporary directory and are removed after each run.
 
 ## Current limitations
 
 - Windows is not supported.
 - Linux requires a native Wayland session.
-- macOS arm64 packaging and clean-machine acceptance are not yet verified.
+- Intel Macs are not supported; the macOS release target is arm64 only.
 - Search, file watching, tabs, multiple windows, and custom sorting are out of scope.
 - Crumb does not edit, launch, copy, move, rename, or delete files.
 - PDF, audio, video, archives, Office documents, and SVG receive metadata-only previews.
@@ -266,6 +308,35 @@ Check that Rust, Cargo, a C toolchain, `pkg-config`, `patch`, and the GTK/WebKit
 ```sh
 bun run build:native
 ```
+
+### macOS reports `bad CPU type in executable`
+
+The macOS artifact requires Apple Silicon. Confirm that `uname -m` prints `arm64`; Intel (`x86_64`) Macs are not supported.
+
+### macOS reports `permission denied`
+
+Preserve or restore the executable bit, then run the binary without `sudo`:
+
+```sh
+chmod +x dist/crumb-macos-arm64
+./dist/crumb-macos-arm64
+```
+
+If Crumb opens but a protected folder is unavailable, review the macOS privacy guidance in [macOS setup](#macos-setup). Filesystem permission errors are recoverable and Crumb does not change permissions.
+
+### macOS cannot verify the developer
+
+Release binaries are not Developer ID-signed or notarized. Prefer building from source. For a binary whose provenance you have independently verified, macOS may provide **Open Anyway** under **System Settings → Privacy & Security**.
+
+### macOS native addon is unavailable
+
+Run `bun install` on the Apple Silicon Mac and confirm that this file exists:
+
+```sh
+file node_modules/@nativewindow/webview-darwin-arm64/native-window.darwin-arm64.node
+```
+
+It must be an arm64 Mach-O library. Do not reuse `node_modules` copied from Linux or an Intel Mac.
 
 ### Verify Linux native dependencies
 

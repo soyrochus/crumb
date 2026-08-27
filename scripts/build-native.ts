@@ -31,7 +31,10 @@ async function verifiedArchiveExists(): Promise<boolean> {
 
 export async function buildNativeAddon(): Promise<string> {
   if (process.platform !== "linux" || process.arch !== "x64") {
-    throw new Error("The pinned native fork currently builds on Linux x64 only");
+    const guidance = process.platform === "darwin" && process.arch === "arm64"
+      ? "On macOS arm64, `bun install` provides the prebuilt WKWebView addon; use `bun run dev` or `bun run build --target=macos-arm64` instead."
+      : "Run this command on Linux x64, or use the build command for a supported target.";
+    throw new Error(`\`build:native\` only builds Crumb's patched Linux x64 Wayland addon and cannot run on ${process.platform} ${process.arch}. ${guidance}`);
   }
   if (await Bun.file(outputPath).exists()) return outputPath;
   await mkdir(buildRoot, { recursive: true });

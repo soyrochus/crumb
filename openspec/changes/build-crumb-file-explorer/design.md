@@ -2,7 +2,7 @@
 
 The repository currently contains only the product specification and OpenSpec configuration. Crumb will be a new local desktop application whose trusted Bun host performs filesystem inspection and whose native WebView renders application-owned HTML, CSS, and browser TypeScript. It must run without Bun, Node.js, a source checkout, network access, or a local application server.
 
-The design crosses a native binding, an RPC trust boundary, two operating systems, untrusted filesystem content, and a standalone executable build. The published `@nativewindow/webview` 1.0.6 Linux binary does not visibly attach the WebView, so Crumb builds a checksum-pinned minimal source fork that corrects its GTK parent. The fork passes native Wayland window creation, asynchronous IPC, Linux x64 compilation, and relocated single-file execution. macOS arm64 runtime verification remains platform-gated.
+The design crosses a native binding, an RPC trust boundary, two operating systems, untrusted filesystem content, and a standalone executable build. The published `@nativewindow/webview` 1.0.6 Linux binary does not visibly attach the WebView, so Crumb builds a checksum-pinned minimal source fork that corrects its GTK parent. The fork passes native Wayland window creation, asynchronous IPC, Linux x64 compilation, and relocated single-file execution. The published macOS arm64 binding passes native WKWebView execution, standalone compilation, relocation, dependency inspection, and application acceptance on macOS 26.5.2.
 
 ## Goals / Non-Goals
 
@@ -92,7 +92,7 @@ Required release builds run on their corresponding operating system until cross-
 
 ## Risks / Trade-offs
 
-- [A dynamically selected Node-API addon is omitted by Bun compilation] → Use a target-specific literal addon require, which is proven to embed and run after Linux relocation; verify the same pattern on macOS arm64.
+- [A dynamically selected Node-API addon is omitted by Bun compilation] → Use a target-specific literal addon require, now proven to embed and run after relocation on both required targets.
 - [The published Linux addon creates an invisible WebView] → Build the checksum-pinned 1.0.6 source with the repository's zero-fuzz minimal patch changing the Wry parent from `window.gtk_window()` to Tao's `window.default_vbox()`; verify visible Wayland and relocation acceptance on every release.
 - [Linux WebKitGTK availability varies by distribution] → Target and document distribution families that provide GTK 3 and WebKitGTK 4.1, force/verify native Wayland, and fail startup with an actionable stderr message rather than falling back to X11/XWayland.
 - [Native WebView RPC may execute callbacks on a UI-sensitive thread] → Keep callbacks asynchronous, benchmark the feasibility slice, and move bounded filesystem work to a worker only if measurements require it.
@@ -107,6 +107,5 @@ This is a greenfield change with no persisted data or compatibility migration. I
 
 ## Open Questions
 
-- Which exact macOS and Linux versions/distributions constitute the clean-machine support matrix?
-- Does the literal target-addon embedding pattern pass compilation, relocation, native runtime, and clean-machine verification on macOS arm64?
-- Which exact Wayland compositors and Linux distribution versions constitute the support matrix beyond the proven development session?
+- Which additional Wayland compositors and Linux distribution versions should join the initial Ubuntu 26.04 support matrix?
+- Should a later release add a Developer ID-signed and notarized macOS `.app` bundle while retaining the standalone executable?
