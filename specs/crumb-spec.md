@@ -4,13 +4,15 @@
 
 ## Product and Technical Specification
 
-**Status:** Implementation specification
+**Status:** Living implementation specification
 **Target platforms:** macOS and Linux
 **Out-of-scope platform:** Windows
 **Primary architecture:** Bun + TypeScript + native operating-system WebView
 **Desktop binding:** `@nativewindow/webview`
 **Distribution model:** Single self-contained executable per target platform and architecture
 **Application class:** Local, view-only desktop file explorer
+**Verified target:** Linux x64 on native Wayland
+**Pending platform acceptance:** macOS arm64
 
 ---
 
@@ -146,7 +148,6 @@ Instead, the frontend receives a deliberately narrow capability surface such as:
 ```typescript
 getLocations()
 listDirectory(path)
-getItemDetails(path)
 getPreview(path)
 ```
 
@@ -202,7 +203,19 @@ Use Bun as:
 * package manager;
 * bundler;
 * test runner;
-* executable compiler.
+* [single-file executable compiler][1].
+
+Crumb is also intended to demonstrate Bun's integrated toolchain. The implementation uses:
+
+* `bun install` and `bun.lock` for dependency installation and locking;
+* direct TypeScript execution for development and build scripts;
+* `Bun.build()` for browser bundling and standalone executable compilation;
+* `bun test` as the test runner;
+* `fetch`, `Bun.file`, `Bun.write`, and `Bun.CryptoHasher` for verified native-source acquisition;
+* `Bun.spawn` to run `tar`, `patch`, and Cargo with checked exit status;
+* Node-API compatibility to load the compiled native WebView addon.
+
+The project website for Bun is [https://bun.com/](https://bun.com/).
 
 Node.js must not be required at runtime or for normal development workflows.
 
@@ -237,6 +250,10 @@ RPC inputs must always be runtime-validated even though TypeScript types exist.
 
 Use `@nativewindow/webview` as the desktop binding.
 
+Linux must not use the unmodified published 1.0.6 addon. That addon attaches WebKitGTK directly to Tao's already-occupied top-level GTK window and produces a gray window. Crumb pins upstream commit `acfbe3ce4be2b70dc664bdd6c5feb53c52f9ce3e`, verifies archive SHA-256 `ddc10437e3cc7fcc2b18c0905f396e82d7a1cedccc88a05b3b86976cf4b77734`, and applies `native/nativewindow-webview-v1.0.6-wayland.patch` with zero fuzz. The patch attaches Wry to Tao's default GTK content box.
+
+Both `bun run dev` and `bun run build --target=linux-x64` must call the same native-addon builder. Download, checksum, patch, or compilation failure must stop the command; there is no fallback to the published Linux addon. A successful addon may be cached below `.build/`, which is excluded from Git. A clean clone therefore always follows the verified source-and-patch path.
+
 The implementation must use the native WebView technology available on each supported operating system rather than package Chromium.
 
 The exact native backend is platform-dependent:
@@ -263,7 +280,7 @@ The native window contains a system WebView.
 Application title:
 
 ```text
-Explorer
+Crumb
 ```
 
 Working title may be changed later without architectural impact.
@@ -315,18 +332,17 @@ It does not need to bundle operating-system WebView libraries or desktop system 
 
 The Linux release documentation must clearly state required runtime dependencies for supported distributions or distribution families.
 
-Potential system dependencies may include:
+The verified Ubuntu 26.04 runtime packages are:
 
 ```text
-GTK
-WebKitGTK
-GLib
-Cairo
-Pango
-GDK-Pixbuf
+libgtk-3-0t64
+libwebkit2gtk-4.1-0
+libjavascriptcoregtk-4.1-0
 ```
 
 The initial Linux binding requires GTK 3 and WebKitGTK 4.1. Crumb must force the Wayland GDK backend and must not connect to an X server or fall back to X11/XWayland. Distribution GTK/WebKitGTK packages may retain dormant linkage to X11 compatibility libraries; this does not permit selecting their X11 backend.
+
+Building the patched addon requires Rust, Cargo, a C compiler and linker, `pkg-config`, `patch`, GTK 3 development headers, and WebKitGTK 4.1 development headers. On Ubuntu these are provided by `cargo`, `rustc`, `build-essential`, `pkg-config`, `patch`, `libgtk-3-dev`, and `libwebkit2gtk-4.1-dev`.
 
 The application must fail with a clear startup error if a required native WebView library is unavailable.
 
@@ -370,7 +386,7 @@ The application contains:
 
 ```text
 ┌───────────────────────────────────────────────────────────────────┐
-│ ◀︎  ▶︎     /home/user/Documents                           Explorer │
+│ ◀︎  ▶︎     /home/user/Documents                              Crumb │
 ├───────────────┬────────────────────────┬──────────────────────────┤
 │               │                        │                          │
 │ NAVIGATION    │ DIRECTORY CONTENT      │ PREVIEW                  │
@@ -431,7 +447,7 @@ A narrow toolbar appears above the three panes.
 It contains:
 
 ```text
-[Back] [Forward]     Current Path
+[Back] [Forward] [Parent]     Current Path     [Hidden: Off/On]
 ```
 
 Optional future features such as search must not be implemented in version 1.
@@ -465,6 +481,14 @@ or:
 ```
 
 The path is display-only in version 1.
+
+## 12.4 Parent
+
+Navigates to the parent of the current directory and is a no-op at root.
+
+## 12.5 Hidden files
+
+Toggles dotfile visibility. The button exposes its state through text, pressed styling, `aria-pressed`, and a dynamic accessible label.
 
 It must not be implemented as an editable text field.
 
@@ -664,23 +688,23 @@ type EntryKind =
   | "symlink"
   | "other";
 
-interface FileEntry {
+type TargetKind = Exclude<EntryKind, "symlink">;
+
+interface ItemDetails {
   name: string;
   path: string;
   kind: EntryKind;
-
   extension: string | null;
-
   size: number | null;
-
   modifiedAt: string | null;
   createdAt: string | null;
-
   hidden: boolean;
   readable: boolean;
-
-  symlink: boolean;
+  targetKind: TargetKind | null;
+  broken: boolean;
 }
+
+type DirectoryEntry = ItemDetails;
 ```
 
 Dates use ISO 8601 serialization.
@@ -742,6 +766,8 @@ toggles their visibility.
 The setting remains in memory for the lifetime of the application.
 
 No preference file is written.
+
+The toolbar control must expose `aria-pressed`, a dynamic accessible label, and a visible non-colour state cue. Its text is `Hidden: Off` when dotfiles are excluded and `Hidden: On` when they are included. The pressed appearance and label must update immediately, without waiting for directory enumeration to finish.
 
 ---
 
@@ -1281,20 +1307,16 @@ If a timestamp is unavailable, display an appropriate placeholder or omit the fi
 
 The Bun host owns all filesystem access.
 
-Suggested modules:
+Current modules:
 
 ```text
 src/
   host/
     main.ts
     filesystem.ts
-    locations.ts
     preview.ts
-    mime.ts
     rpc.ts
-    errors.ts
     platform.ts
-    types.ts
 ```
 
 Responsibilities:
@@ -1314,18 +1336,6 @@ Responsibilities:
 * stat/lstat operations;
 * safe reads.
 
-### `locations.ts`
-
-* Home;
-* Desktop;
-* Documents;
-* Downloads;
-* Pictures;
-* Music;
-* Videos;
-* mounted volumes;
-* platform-specific location discovery.
-
 ### `preview.ts`
 
 * preview classification;
@@ -1334,14 +1344,9 @@ Responsibilities:
 * preview limits;
 * generic metadata.
 
-### `mime.ts`
-
-* MIME inference;
-* extension classification.
-
 ### `rpc.ts`
 
-* WebView binding registration;
+* four-method RPC routing;
 * input validation;
 * error normalization.
 
@@ -1353,45 +1358,26 @@ Responsibilities:
 * platform-specific volume discovery;
 * platform-specific startup and window behaviour where required.
 
-### `errors.ts`
-
-* domain-specific error model.
-
-### `types.ts`
-
-* shared backend domain types.
+Location discovery is implemented with filesystem inspection in `filesystem.ts`. Preview classification is kept in `preview.ts`. Serializable domain types and errors live in `src/shared/contracts.ts` and validation/error normalization lives in `src/shared/validation.ts`.
 
 ---
 
 # 43. Frontend Responsibilities
 
-Suggested layout:
+Current layout:
 
 ```text
 src/
   ui/
     index.html
-    main.ts
     app.ts
     state.ts
-    rpc.ts
-
-    components/
-      navigation-pane.ts
-      directory-pane.ts
-      preview-pane.ts
-      toolbar.ts
-      splitter.ts
-
-    styles/
-      base.css
-      layout.css
-      navigation.css
-      directory.css
-      preview.css
+    client.ts
+    styles.css
+    virtual.d.ts
 ```
 
-The exact file breakdown may be adjusted during implementation, but responsibilities must remain separated.
+`app.ts` owns DOM rendering and interactions, `state.ts` owns transactional transient state, `client.ts` owns browser-side RPC validation, and `styles.css` owns the adaptive three-pane presentation.
 
 Do not create dozens of files for trivial elements.
 
@@ -1416,12 +1402,12 @@ interface Location {
   id: string;
   label: string;
   path: string;
-  kind: "home" | "favorite" | "volume" | "root";
+  kind: "home" | "root" | "common" | "volume";
 }
 
 interface DirectoryListing {
   path: string;
-  entries: FileEntry[];
+  entries: DirectoryEntry[];
   truncated: boolean;
 }
 
@@ -1443,21 +1429,22 @@ Example:
 ```typescript
 interface DirectoryPreview {
   type: "directory";
-  item: ItemDetails;
-  itemCount: number | null;
+  details: ItemDetails;
+  childCount: number | null;
+  childCountTruncated: boolean;
 }
 
 interface ImagePreview {
   type: "image";
-  item: ItemDetails;
-  mimeType: string;
+  details: ItemDetails;
+  mime: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
   dataUrl: string | null;
   tooLarge: boolean;
 }
 
 interface TextPreview {
   type: "text";
-  item: ItemDetails;
+  details: ItemDetails;
   content: string;
   truncated: boolean;
   bytesRead: number;
@@ -1466,7 +1453,8 @@ interface TextPreview {
 
 interface GenericPreview {
   type: "generic";
-  item: ItemDetails;
+  details: ItemDetails;
+  reason?: "unsupported" | "binary" | "too-large" | "unavailable";
 }
 ```
 
@@ -1483,35 +1471,28 @@ Expose a deliberately narrow backend interface.
 Conceptually:
 
 ```typescript
-interface ExplorerApi {
-  getPlatformInfo(): Promise<PlatformInfo>;
+interface CrumbApi {
+  getPlatformInfo(input: Record<string, never>): Promise<PlatformInfo>;
 
-  getLocations(): Promise<Location[]>;
+  getLocations(input: Record<string, never>): Promise<Location[]>;
 
-  listDirectory(
-    path: string,
-    options?: {
-      showHidden?: boolean;
-    }
-  ): Promise<DirectoryListing>;
+  listDirectory(input: {
+    path: string;
+    showHidden: boolean;
+  }): Promise<DirectoryListing>;
 
-  getItemDetails(
-    path: string
-  ): Promise<ItemDetails>;
-
-  getPreview(
-    path: string
-  ): Promise<Preview>;
+  getPreview(input: { path: string }): Promise<Preview>;
 }
 ```
+
+These are the only four production RPC methods. Preview variants contain complete item details, so a separate item-details method is intentionally omitted.
 
 `getPlatformInfo()` may provide:
 
 ```typescript
 interface PlatformInfo {
   platform: "macos" | "linux";
-  primaryModifier: "command" | "control";
-  pathSeparator: "/";
+  primaryModifier: "Meta" | "Control";
 }
 ```
 
@@ -1583,7 +1564,7 @@ Example:
 ~/linked-project -> /mnt/data/project
 ```
 
-If the target is a directory and the user enters it, navigation may resolve to the target.
+If the target is a directory and the user enters it, the displayed and historical path remains the normalized lexical symlink path. This keeps parent navigation consistent with the path the user entered.
 
 Broken links display as unavailable items.
 
@@ -1630,20 +1611,17 @@ Normalize low-level filesystem errors into application errors.
 Suggested model:
 
 ```typescript
-type ErrorCode =
+type DomainErrorCode =
+  | "INVALID_INPUT"
   | "NOT_FOUND"
   | "PERMISSION_DENIED"
   | "NOT_DIRECTORY"
-  | "NOT_FILE"
   | "UNAVAILABLE"
-  | "PREVIEW_TOO_LARGE"
-  | "UNSUPPORTED"
-  | "UNKNOWN";
+  | "UNSUPPORTED_PLATFORM";
 
-interface ExplorerError {
-  code: ErrorCode;
+interface DomainError {
+  code: DomainErrorCode;
   message: string;
-  path?: string;
 }
 ```
 
@@ -1772,7 +1750,7 @@ If exceeded, the listing may be truncated and indicate:
 ```typescript
 interface DirectoryListing {
   path: string;
-  entries: FileEntry[];
+  entries: DirectoryEntry[];
   truncated: boolean;
 }
 ```
@@ -1795,7 +1773,9 @@ interface AppState {
 
   locations: Location[];
 
-  entries: FileEntry[];
+  listing: DirectoryListing | null;
+
+  preview: Preview | null;
 
   backHistory: string[];
   forwardHistory: string[];
@@ -1803,13 +1783,12 @@ interface AppState {
   showHidden: boolean;
 
   navigationWidth: number;
-  directoryWidth: number;
+  previewWidth: number;
 
-  loadingDirectory: boolean;
-  loadingPreview: boolean;
+  directoryLoading: boolean;
+  previewLoading: boolean;
 
-  directoryError: ExplorerError | null;
-  previewError: ExplorerError | null;
+  error: DomainError | null;
 }
 ```
 
@@ -1978,7 +1957,21 @@ No runtime lookup from the source directory is permitted.
 
 # 66. Build Pipeline
 
-The build should consist of two conceptual stages.
+The application build consists of two Bun stages plus a Linux-only native prerequisite.
+
+## Linux native prerequisite
+
+`scripts/build-native.ts` must:
+
+1. reject platforms other than Linux x64;
+2. use the pinned upstream commit and archive SHA-256;
+3. download the archive only when a verified cached archive is unavailable;
+4. extract a fresh source tree;
+5. apply `native/nativewindow-webview-v1.0.6-wayland.patch` using `patch --fuzz=0`;
+6. run `cargo build --release --locked`;
+7. place the resulting addon at `.build/nativewindow-webview-v1.0.6/native-window.linux-x64-gnu.node`.
+
+The builder may reuse that generated addon when it already exists. `.build/` must remain excluded from Git so a clean clone cannot bypass the verified build path.
 
 ## Stage 1 — UI
 
@@ -2002,14 +1995,16 @@ Bun host
 shared application code
 @nativewindow/webview
 embedded UI
+target-specific native addon
 ```
 
 into the final executable.
 
-The complete process should be exposed as:
+The complete target process is exposed as:
 
 ```bash
-bun run build
+bun run build --target=linux-x64
+bun run build --target=macos-arm64
 ```
 
 The build must produce artifacts for the supported target platform and architecture.
@@ -2018,15 +2013,18 @@ The build must produce artifacts for the supported target platform and architect
 
 # 67. Development Commands
 
-Recommended scripts:
+Required scripts:
 
 ```json
 {
   "scripts": {
-    "dev": "bun run src/host/main.ts",
+    "dev": "bun run scripts/dev.ts",
     "build": "bun run scripts/build.ts",
+    "build:native": "bun run scripts/build-native.ts",
+    "build:ui": "bun run scripts/build-ui.ts",
     "test": "bun test",
-    "typecheck": "bunx tsc --noEmit"
+    "typecheck": "bunx tsc --noEmit",
+    "verify:readonly": "bun run scripts/verify-readonly.ts"
   }
 }
 ```
@@ -2039,37 +2037,21 @@ Execution remains Bun.
 
 # 68. Production Compilation
 
-The production host compilation should use Bun standalone executable compilation.
+The production host uses Bun's JavaScript build API with standalone executable compilation. Release builds run on their corresponding operating system until native cross-compilation is independently proven.
 
-Conceptually, macOS arm64:
-
-```bash
-bun build \
-  --compile \
-  --minify \
-  --sourcemap \
-  --target=bun-darwin-arm64 \
-  src/host/main.ts \
-  --outfile dist/explorer-macos-arm64
-```
-
-Conceptually, Linux x64:
+macOS arm64:
 
 ```bash
-bun build \
-  --compile \
-  --minify \
-  --sourcemap \
-  --target=bun-linux-x64 \
-  src/host/main.ts \
-  --outfile dist/explorer-linux-x64
+bun run build --target=macos-arm64
 ```
 
-The exact target list may be expanded for additional supported architectures.
+Linux x64:
 
-The build script may use Bun's JavaScript build API instead of shell commands.
+```bash
+bun run build --target=linux-x64
+```
 
-Prefer the JavaScript API if multiple build stages are needed.
+The build embeds the self-contained UI and resolves the target addon through statically analyzable generated module content so Bun includes it in the executable.
 
 ---
 
@@ -2077,23 +2059,14 @@ Prefer the JavaScript API if multiple build stages are needed.
 
 The initial release should define explicit target artifacts.
 
-Recommended targets:
-
-```text
-macOS arm64
-macOS x64
-Linux x64
-Linux arm64
-```
-
-The minimum required release targets may be:
+Required release targets:
 
 ```text
 macOS arm64
 Linux x64
 ```
 
-Additional architectures are optional but should be supported by the build design.
+Additional architectures are optional future work.
 
 A universal macOS executable is not required for version 1.
 
@@ -2106,15 +2079,15 @@ If multiple architectures are required, produce separately compiled binaries rat
 The primary artifact for each target must be a single executable, for example:
 
 ```text
-dist/explorer-macos-arm64
-dist/explorer-linux-x64
+dist/crumb-macos-arm64
+dist/crumb-linux-x64
 ```
 
 and not:
 
 ```text
 dist/
-  explorer
+  crumb
   bun
   ui.html
   styles.css
@@ -2156,7 +2129,7 @@ The build pipeline must include or document verification.
 For macOS:
 
 ```bash
-file dist/explorer-macos-arm64
+file dist/crumb-macos-arm64
 ```
 
 Expected output should identify a Mach-O executable for the selected architecture.
@@ -2164,13 +2137,13 @@ Expected output should identify a Mach-O executable for the selected architectur
 Inspect dynamic dependencies:
 
 ```bash
-otool -L dist/explorer-macos-arm64
+otool -L dist/crumb-macos-arm64
 ```
 
 For Linux:
 
 ```bash
-file dist/explorer-linux-x64
+file dist/crumb-linux-x64
 ```
 
 Expected output should identify an ELF executable for the selected architecture.
@@ -2178,10 +2151,10 @@ Expected output should identify an ELF executable for the selected architecture.
 Inspect dynamic dependencies:
 
 ```bash
-ldd dist/explorer-linux-x64
+ldd .build/nativewindow-webview-v1.0.6/native-window.linux-x64-gnu.node
 ```
 
-Dependencies must resolve only to permitted operating-system libraries or dependencies known to be provided by the target environment.
+The Linux executable embeds the addon, so `file` verifies the executable while `ldd` inspects the native addon before embedding. Dependencies must resolve only to permitted operating-system libraries or dependencies known to be provided by the target environment, and none may be reported as `not found`.
 
 No application-owned `.dylib`, `.so`, UI file, stylesheet, or asset directory beside the executable may be required.
 
@@ -2416,15 +2389,14 @@ Startup flow:
 ```text
 1. Start Bun executable.
 2. Detect supported operating system.
-3. Resolve home directory.
-4. Determine sidebar locations.
-5. Create native WebView.
-6. Register RPC bindings.
-7. Load embedded UI.
-8. Show window.
-9. Navigate to Home.
-10. Enumerate Home.
-11. Render directory.
+3. Force the Wayland GDK backend on Linux.
+4. Create the native window and WebView early.
+5. Register the narrow RPC message router.
+6. Load the embedded UI.
+7. Resolve platform information and sidebar locations asynchronously.
+8. Select Home when available, otherwise root.
+9. Enumerate the initial directory.
+10. Render the listing.
 ```
 
 Failure to resolve Home should fall back to:
@@ -2445,7 +2417,7 @@ Shutdown must:
 
 * release WebView resources;
 * close filesystem watchers if any;
-  -cancel irrelevant pending operations where feasible;
+* cancel or disregard irrelevant pending operations where feasible;
 * exit with status `0` after normal closure.
 
 No persistence operation occurs during shutdown.
@@ -2686,6 +2658,8 @@ Expected production dependency:
 @nativewindow/webview
 ```
 
+On Linux, Crumb builds the pinned source for this dependency with the repository's minimal GTK-parent patch. The patched Node-API addon is an application-owned build artifact and must be embedded in the Linux executable.
+
 Avoid adding dependencies for functionality already supplied adequately by:
 
 ```text
@@ -2738,64 +2712,64 @@ Architecture should remain proportional to its problem.
 
 # 95. Expected Repository Structure
 
-Recommended:
+Current structure:
 
 ```text
-explorer/
+crumb/
 │
 ├── package.json
 ├── bun.lock
 ├── tsconfig.json
 ├── README.md
+├── crumb-spec.md
 │
 ├── scripts/
-│   └── build.ts
+│   ├── build-native.ts
+│   ├── build-ui.ts
+│   ├── build.ts
+│   ├── dev.ts
+│   ├── feasibility.ts
+│   ├── ui-artifact.ts
+│   └── verify-readonly.ts
+│
+├── native/
+│   └── nativewindow-webview-v1.0.6-wayland.patch
 │
 ├── src/
 │   ├── shared/
-│   │   └── contracts.ts
+│   │   ├── contracts.ts
+│   │   └── validation.ts
 │   │
 │   ├── host/
 │   │   ├── main.ts
 │   │   ├── filesystem.ts
-│   │   ├── locations.ts
 │   │   ├── preview.ts
-│   │   ├── mime.ts
 │   │   ├── rpc.ts
-│   │   ├── platform.ts
-│   │   └── errors.ts
+│   │   └── platform.ts
 │   │
 │   └── ui/
 │       ├── index.html
-│       ├── main.ts
 │       ├── app.ts
 │       ├── state.ts
-│       ├── rpc.ts
-│       │
-│       ├── components/
-│       │   ├── navigation-pane.ts
-│       │   ├── directory-pane.ts
-│       │   ├── preview-pane.ts
-│       │   ├── toolbar.ts
-│       │   └── splitter.ts
-│       │
-│       └── styles/
-│           ├── base.css
-│           ├── layout.css
-│           ├── navigation.css
-│           ├── directory.css
-│           └── preview.css
+│       ├── client.ts
+│       ├── styles.css
+│       └── virtual.d.ts
 │
 ├── test/
 │   ├── filesystem.test.ts
+│   ├── platform.test.ts
 │   ├── preview.test.ts
-│   ├── paths.test.ts
-│   ├── locations.test.ts
-│   └── security.test.ts
+│   ├── read-only-boundary.test.ts
+│   ├── state.test.ts
+│   └── validation.test.ts
+│
+├── docs/
+├── images/
+├── openspec/
 │
 └── dist/
-    ├── explorer-macos-arm64
-    └── explorer-linux-x64
+    ├── crumb-macos-arm64
+    └── crumb-linux-x64
 ```
 
 `dist/` is generated.
@@ -2878,7 +2852,7 @@ The first version is complete when all of the following hold:
 * Forward works;
 * parent navigation works;
 * keyboard item navigation works;
-* hidden-file toggle works;
+* hidden-file toggle works and exposes an immediate, visible, accessible on/off state;
 * platform-appropriate keyboard modifiers work;
 * directory previews work;
 * text previews work;
@@ -2896,6 +2870,8 @@ The first version is complete when all of the following hold:
 * production output consists of one executable per target platform and architecture;
 * documented native WebView dependencies are sufficient for launching on supported Linux systems;
 * tests pass using `bun test`.
+
+Linux x64 native-Wayland feasibility, asynchronous RPC, standalone compilation, and executable relocation are verified. The definition of done is not fully satisfied until the macOS arm64 build, runtime, relocation, clean-machine, and complete manual acceptance checks have also passed.
 
 ---
 
@@ -2954,7 +2930,7 @@ These exclusions are intentional.
 The complete application should remain conceptually this small:
 
 ```text
-                 Explorer
+                   Crumb
                     │
         ┌───────────┴───────────┐
         │                       │
@@ -2985,7 +2961,7 @@ application assets
         │
         ▼
 ┌────────────────────────────┐
-│ explorer-platform-arch     │
+│ crumb-platform-arch        │
 │                            │
 │ single native executable   │
 └────────────────────────────┘
