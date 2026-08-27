@@ -1,6 +1,6 @@
 <div align="center">
   <img src="./images/crumb-logo-smaller.png" alt="Crumb logo" width="220">
-  <h1>Crumb</h1>
+
   <p>A small, view-only desktop file explorer built with Bun, TypeScript, and native operating-system WebViews.</p>
   <p>
     <img alt="Status: alpha" src="https://img.shields.io/badge/status-alpha-f59e0b">
@@ -14,6 +14,8 @@
 </div>
 
 Crumb provides a lightweight three-pane interface for browsing directories and inspecting files. It uses the operating system's WebView instead of bundling Chromium, exposes a narrow read-only host API, and can be compiled into one executable per target platform.
+
+But the intention of Crumb is not the file manager. It is intenteded to be a practical exploration of [Bun](https://bun.com/): its capabilities as an application toolchain. It uses Bun for package management, direct TypeScript execution, browser bundling, automated testing, Node-API compatibility, and compilation into standalone executables. Combined with native operating-system WebViews, it demonstrates how to create a lightweight desktop application without shipping Chromium, starting a local web server, or requiring users to install Bun or Node.js alongside the finished executable.
 
 > [!IMPORTANT]
 > Linux x64 on native Wayland and macOS arm64 are verified. X11 and XWayland are not supported. Crumb is currently distributed as an unsigned standalone executable rather than an installer or macOS `.app` bundle.
@@ -347,8 +349,22 @@ ldd .build/nativewindow-webview-v1.0.6/native-window.linux-x64-gnu.node
 
 No dependency should be reported as `not found`.
 
-## Contributing
+---
+
+## Principles of Participation
+
+Everyone is invited and welcome to contribute: open issues, propose pull requests, share ideas, or help improve documentation. Participation is open to all, regardless of background or viewpoint.
+
+This project follows the [FOSS Pluralism Manifesto](./FOSS_PLURALISM_MANIFESTO.md), which affirms respect for people, freedom to critique ideas, and space for diverse perspectives.
 
 Keep changes aligned with Crumb's core constraints: view-only filesystem access, bounded reads, native WebViews, no local server, no network dependency at runtime, and no X11/XWayland fallback on Linux.
 
 Before submitting a change, run the verification commands above and update the relevant OpenSpec artifacts when behavior or requirements change.
+
+## License and Copyright
+
+Copyright (c) 2026 Iwan van der Kleijn
+
+This project is licensed under the MIT License. See the [LICENSE.md](LICENSE.md) file for details.
+
+The [tutorial](tutorial/) — "Rust in the Loop," under `tutorial/` — is licensed separately, under [CC BY 4.0](tutorial/src/LICENSE.md), since it is written material rather than software.
