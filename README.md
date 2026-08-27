@@ -35,6 +35,8 @@ But the intention of Crumb is not the file manager. It is intenteded to be a pra
 - No file creation, editing, deletion, renaming, moving, or shell execution
 - No local server, network service, telemetry, settings database, or persistent history
 
+![Screenshot MacOS](images/screenshot-macos.png)
+
 ## Quick start
 
 ### Requirements
