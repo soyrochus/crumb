@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "bun run scripts/dev.ts",
     "build": "bun run scripts/build.ts",
+    "build:native": "bun run scripts/build-native.ts",
     "build:ui": "bun run scripts/build-ui.ts",
     "test": "bun test",
     "typecheck": "bunx tsc --noEmit",

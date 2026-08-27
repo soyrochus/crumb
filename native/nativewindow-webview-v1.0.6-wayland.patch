@@ -1,0 +1,14 @@
+--- a/packages/webview/src/platform/unified.rs
++++ b/packages/webview/src/platform/unified.rs
+@@ -811,8 +811,10 @@
+             #[cfg(target_os = "linux")]
+             let webview = {
+                 use tao::platform::unix::WindowExtUnix;
+-                let gtk_window = window.gtk_window();
+-                wv_builder.build_gtk(gtk_window)
++                let gtk_container = window.default_vbox().ok_or_else(|| {
++                    napi::Error::from_reason("Tao GTK container is unavailable")
++                })?;
++                wv_builder.build_gtk(gtk_container)
+                     .map_err(|e| napi::Error::from_reason(format!("Failed to create webview: {}", e)))?
+             };

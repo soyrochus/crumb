@@ -2,7 +2,7 @@
 
 The repository currently contains only the product specification and OpenSpec configuration. Crumb will be a new local desktop application whose trusted Bun host performs filesystem inspection and whose native WebView renders application-owned HTML, CSS, and browser TypeScript. It must run without Bun, Node.js, a source checkout, network access, or a local application server.
 
-The design crosses a native binding, an RPC trust boundary, two operating systems, untrusted filesystem content, and a standalone executable build. The selected `@nativewindow/webview` binding has passed native Wayland window, asynchronous IPC, Linux x64 compilation, and relocated single-file execution probes. macOS arm64 runtime verification remains platform-gated.
+The design crosses a native binding, an RPC trust boundary, two operating systems, untrusted filesystem content, and a standalone executable build. The published `@nativewindow/webview` 1.0.6 Linux binary does not visibly attach the WebView, so Crumb builds a checksum-pinned minimal source fork that corrects its GTK parent. The fork passes native Wayland window creation, asynchronous IPC, Linux x64 compilation, and relocated single-file execution. macOS arm64 runtime verification remains platform-gated.
 
 ## Goals / Non-Goals
 
@@ -28,7 +28,7 @@ The design crosses a native binding, an RPC trust boundary, two operating system
 
 The first deliverable will open a native window, load embedded self-contained HTML, invoke a validated asynchronous RPC method, and compile/run on both required targets without adjacent application-owned files. Full feature work proceeds only after this slice passes.
 
-This is preferred over building the domain layer first because native binding and packaging failure would invalidate the chosen architecture. The original `webview-bun` choice was replaced after its blocking event loop prevented Promise-returning RPC callbacks from settling. `@webviewjs/webview` was rejected because native Wayland window creation failed, and Butter was rejected because its published Linux shim directly depends on X11 and its compiled IPC framing was inconsistent. `@nativewindow/webview` is selected because its non-blocking pump completes asynchronous IPC on native Wayland and its Node-API addon can be embedded into Bun's standalone executable.
+This is preferred over building the domain layer first because native binding and packaging failure would invalidate the chosen architecture. The original `webview-bun` choice was replaced after its blocking event loop prevented Promise-returning RPC callbacks from settling. `@webviewjs/webview` was rejected because native Wayland window creation failed, and Butter was rejected because its published Linux shim directly depends on X11 and its compiled IPC framing was inconsistent. `@nativewindow/webview` has the required non-blocking pump and embeddable Node-API addon, but version 1.0.6 incorrectly passes Tao's already-occupied `GtkApplicationWindow` to Wry's `build_gtk`. GTK rejects the second child and shows only the existing gray container. Crumb therefore pins upstream commit `acfbe3ce4be2b70dc664bdd6c5feb53c52f9ce3e` and patches only that call to pass `window.default_vbox()`.
 
 ### Separate host, shared contracts, and browser UI
 
@@ -93,6 +93,7 @@ Required release builds run on their corresponding operating system until cross-
 ## Risks / Trade-offs
 
 - [A dynamically selected Node-API addon is omitted by Bun compilation] → Use a target-specific literal addon require, which is proven to embed and run after Linux relocation; verify the same pattern on macOS arm64.
+- [The published Linux addon creates an invisible WebView] → Build the checksum-pinned 1.0.6 source with the repository's zero-fuzz minimal patch changing the Wry parent from `window.gtk_window()` to Tao's `window.default_vbox()`; verify visible Wayland and relocation acceptance on every release.
 - [Linux WebKitGTK availability varies by distribution] → Target and document distribution families that provide GTK 3 and WebKitGTK 4.1, force/verify native Wayland, and fail startup with an actionable stderr message rather than falling back to X11/XWayland.
 - [Native WebView RPC may execute callbacks on a UI-sensitive thread] → Keep callbacks asynchronous, benchmark the feasibility slice, and move bounded filesystem work to a worker only if measurements require it.
 - [Base64 image transport adds roughly one-third encoding overhead plus transient copies] → Enforce the 25 MiB file cap, release old payloads immediately, and lower the limit if memory verification fails.

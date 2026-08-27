@@ -29,7 +29,7 @@ None.
 ## Impact
 
 - Introduces the initial `src/host`, `src/ui`, `src/shared`, `scripts`, and test structure.
-- Adds `@nativewindow/webview` as the primary production dependency and TypeScript tooling as development dependencies.
+- Adds `@nativewindow/webview` as the primary production dependency, a checksum-pinned minimal Linux source patch for correct GTK parenting, and TypeScript tooling as development dependencies.
 - Adds native runtime dependencies on the operating-system WebView stack; the published Linux binding currently requires GTK 3 and WebKitGTK 4.1 and must initialize with the Wayland GDK backend.
 - Establishes a small, explicitly read-only RPC contract between trusted application UI code and the Bun host.
 - Adds build and verification workflows for macOS arm64 and Linux x64; additional architectures remain optional follow-up work.

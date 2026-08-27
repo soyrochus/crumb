@@ -1,8 +1,8 @@
 ## 1. Native Shell Feasibility Gate
 
 - [x] 1.1 Initialize the Bun/TypeScript project with strict compiler settings, scripts, and pinned `@nativewindow/webview` dependency
-- [x] 1.2 Build a minimal native Wayland window that loads self-contained embedded HTML and completes an asynchronous validated RPC round trip without X11/XWayland
-- [x] 1.3 Compile and relocate the Linux x64 feasibility executable, verifying that it runs without adjacent application-owned files
+- [x] 1.2 Build a minimal native Wayland window that visibly loads self-contained embedded HTML and completes an asynchronous validated RPC round trip without X11/XWayland
+- [x] 1.3 Compile and relocate the Linux x64 feasibility executable, verifying that its visible UI runs without adjacent application-owned files
 - [ ] 1.4 Compile and relocate the macOS arm64 feasibility executable, verifying that it runs without adjacent application-owned files
 - [x] 1.5 Record native dependencies, RPC responsiveness, external-navigation/devtools controls, and feasibility results; revise the design before proceeding if any architectural invariant fails
 

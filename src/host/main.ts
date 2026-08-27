@@ -1,4 +1,4 @@
-import { NativeWindow, loadHtmlOrigin } from "@nativewindow/webview";
+import getNativeBinding from "crumb:native";
 import UI_HTML from "crumb:ui";
 import { getLocations, listDirectory } from "./filesystem";
 import { getPlatformInfo, StartupConfigurationError, startupErrorMessage } from "./platform";
@@ -6,6 +6,7 @@ import { getPreview } from "./preview";
 import { createRpcRouter, type RpcHandlers, type RpcRequest } from "./rpc";
 
 let closing = false;
+const { NativeWindow, loadHtmlOrigin } = getNativeBinding();
 
 const handlers: RpcHandlers = {
   getPlatformInfo: () => getPlatformInfo(),

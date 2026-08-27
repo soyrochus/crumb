@@ -1,8 +1,12 @@
+import { createRequire } from "node:module";
 import type { NativeWindow as NativeWindowInstance, WindowOptions } from "@nativewindow/webview";
+import { buildNativeAddon } from "./build-native";
 
-const nativeBinding = require(
-  "@nativewindow/webview-linux-x64-gnu/native-window.linux-x64-gnu.node",
-) as {
+if (process.platform === "linux") process.env.GDK_BACKEND = "wayland";
+const require = createRequire(import.meta.url);
+const nativeBinding = require(process.platform === "linux"
+  ? await buildNativeAddon()
+  : "@nativewindow/webview") as {
   NativeWindow: new (options: WindowOptions) => NativeWindowInstance;
   loadHtmlOrigin: () => string;
 };

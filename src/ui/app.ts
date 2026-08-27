@@ -82,6 +82,8 @@ function renderPreview(preview: Preview | null): void {
 function render(): void {
   pathElement.value = state.currentDirectory;
   hiddenButton.setAttribute("aria-pressed", String(state.showHidden));
+  hiddenButton.setAttribute("aria-label", state.showHidden ? "Hide hidden files" : "Show hidden files");
+  hiddenButton.textContent = state.showHidden ? "Hidden: On" : "Hidden: Off";
   byId<HTMLButtonElement>("back").disabled = state.backHistory.length === 0;
   byId<HTMLButtonElement>("forward").disabled = state.forwardHistory.length === 0;
   entriesElement.replaceChildren();
@@ -94,10 +96,16 @@ function render(): void {
   statusElement.textContent = state.error?.message ?? (state.directoryLoading ? "Loading…" : `${state.listing?.entries.length ?? 0} items${state.listing?.truncated ? " (truncated)" : ""}${state.selectedPath ? ` · ${state.selectedPath}` : ""}`);
 }
 
+function toggleHidden(): void {
+  const refresh = state.toggleHidden();
+  render();
+  void refresh.then(render);
+}
+
 byId("back").addEventListener("click", () => void state.back().then(render));
 byId("forward").addEventListener("click", () => void state.forward().then(render));
 byId("parent").addEventListener("click", () => void state.parent().then(render));
-hiddenButton.addEventListener("click", () => void state.toggleHidden().then(render));
+hiddenButton.addEventListener("click", toggleHidden);
 
 entriesElement.addEventListener("keydown", (event) => {
   const rows = [...entriesElement.querySelectorAll<HTMLButtonElement>(".entry")];
@@ -119,7 +127,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "ArrowUp") void state.parent().then(render);
   else if (event.key === "[") void state.back().then(render);
   else if (event.key === "]") void state.forward().then(render);
-  else if (event.key === "." && event.shiftKey) void state.toggleHidden().then(render);
+  else if (event.key === "." && event.shiftKey) toggleHidden();
   else return;
   event.preventDefault();
 });
