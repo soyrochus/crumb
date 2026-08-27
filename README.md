@@ -376,5 +376,3 @@ Before submitting a change, run the verification commands above and update the r
 Copyright (c) 2026 Iwan van der Kleijn
 
 This project is licensed under the MIT License. See the [LICENSE.md](LICENSE.md) file for details.
-
-The [tutorial](tutorial/) — "Rust in the Loop," under `tutorial/` — is licensed separately, under [CC BY 4.0](tutorial/src/LICENSE.md), since it is written material rather than software.
