@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, truncate, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { getPreview, IMAGE_LIMIT, isTextSample, TEXT_LIMIT } from "../src/host/preview";
+import { getPreview, IMAGE_LIMIT, isTextSample, TEXT_LIMIT } from "../../src/app/host/preview";
 
 const temporary: string[] = [];
 async function fixture(): Promise<string> {

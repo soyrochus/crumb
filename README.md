@@ -77,7 +77,7 @@ bun install
 bun run dev
 ```
 
-That window is the example, not a starting point you have to keep. To build your own app, replace the browser UI in `src/ui/` and the host handlers in `src/host/`, and declare the operations your page needs in `src/host/main.ts` and `src/shared/contracts.ts`. Everything else — the window, the embedded document, the validated bridge, the build — stays as it is.
+That window is the example, not a starting point you have to keep. To build your own app, replace `src/app/` with your own page and handlers, then declare the operations your page may call in `app.config.ts`. Everything else — the window, the embedded document, the validated bridge, the build — stays as it is.
 
 ## Bun in this project
 
@@ -257,7 +257,7 @@ Native window and WebView
             └── Native window lifecycle
 ```
 
-The WebView can call only the operations the application declares — nothing else is reachable, and every input is validated before a handler runs. There is no generic filesystem binding and no eval-style bridge. The embedded document also uses a restrictive Content Security Policy that blocks external connections, frames, objects, forms, and unintended scripts.
+The WebView can call only the operations declared in `app.config.ts` — nothing else is reachable, and every input is validated before a handler runs. An operation absent from that table has no route to a handler. There is no generic filesystem binding and no eval-style bridge. The embedded document also uses a restrictive Content Security Policy that blocks external connections, frames, objects, forms, and unintended scripts.
 
 The `file-explorer` example declares four:
 
@@ -266,7 +266,7 @@ The `file-explorer` example declares four:
 - `listDirectory`
 - `getPreview`
 
-All four are read-only, and `bun run verify:readonly` statically checks the example's source for mutation, whole-file generic reads, and shell execution. That check belongs to the example. Your application declares its own operations and is not bound by it.
+All four are read-only, and `bun run verify:readonly` statically checks `src/app/` for mutation, whole-file generic reads, and shell execution. That check belongs to the example. Your application declares its own operations in `app.config.ts` and is not bound by it.
 
 ### Native Wayland patch
 
@@ -278,7 +278,7 @@ The patch is stored at [`native/nativewindow-webview-v1.0.6-wayland.patch`](./na
 
 | Command | Purpose |
 | --- | --- |
-| `bun run dev` | Build the embedded UI and launch the example |
+| `bun run dev` | Build the embedded UI and launch the configured application |
 | `bun run build:native` | Build the patched Linux native addon |
 | `bun run build:ui` | Build `dist/ui.html` |
 | `bun run build --target=linux-x64` | Build the Linux standalone executable |
@@ -291,34 +291,21 @@ The patch is stored at [`native/nativewindow-webview-v1.0.6-wayland.patch`](./na
 ## Project structure
 
 ```text
-src/host/      Trusted Bun host, filesystem inspection, previews, and RPC
-src/shared/    Serializable contracts and runtime validation
-src/ui/        Embedded browser interface and transient application state
+src/kit/       The template: window bootstrap, RPC router and browser bridge,
+               validation primitives, platform detection, transport types
+src/app/       The file-explorer example. This is the directory you replace.
+app.config.ts  Window, document policy, build targets, declared operations
+main.ts        Entry point: hands the configuration to the kit
 scripts/       Development, native, UI, and release build scripts
 native/        Minimal pinned native binding patch
-test/          Filesystem, validation, preview, state, and platform tests
+test/kit/      Template tests: platform, validation, RPC surface
+test/app/      Example tests: filesystem, preview, state, boundary
 docs/          Build, runtime, and feasibility notes
-openspec/      Change proposal, design, requirements, and task tracking
+openspec/      Change proposals, design, requirements, and task tracking
 images/        Crumb artwork
 ```
 
-Template-owned and example-owned code are not yet separated by directory. Today they are interleaved inside the same files — `src/host/main.ts` holds both the window bootstrap and the example's four handlers, and `src/shared/contracts.ts` holds both the transport types and the example's domain types. Separating them is the next change.
-
-### Where this is going
-
-The layout below does not exist yet. It is the target of the `extract-crumb-kit` change, recorded here so the direction is visible while reading the current code:
-
-```text
-src/kit/          The template itself: window bootstrap, RPC router and client,
-                  result and error types, platform detection — domain-free
-src/app/          Your application: host handlers, UI, shared types
-app.config.ts     Name, window title and size, CSP, build targets, declared operations
-examples/
-  minimal/        One window, one operation, a button
-  file-explorer/  Today's example, moved wholesale
-```
-
-That change also renames the build-time virtual modules `crumb:ui` and `crumb:native` to `app:ui` and `app:native`. The project keeps the name Crumb; an application built on it should carry no Crumb branding in its own source.
+Nothing under `src/kit/` imports from `src/app/`, and the kit names no operation. Moving `src/app/` aside leaves the kit typechecking cleanly — that is a test, not an aspiration.
 
 ## Verification
 

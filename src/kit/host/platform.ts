@@ -1,9 +1,16 @@
-import type { PlatformInfo, SupportedPlatform } from "../shared/contracts";
 import { normalizeError } from "../shared/validation";
+
+export type SupportedPlatform = "macos" | "linux";
+export type PrimaryModifier = "Meta" | "Control";
+
+export interface PlatformInfo {
+  platform: SupportedPlatform;
+  primaryModifier: PrimaryModifier;
+}
 
 export class UnsupportedPlatformError extends Error {
   constructor(readonly platform: string) {
-    super(`Crumb supports macOS and Linux; ${platform} is unsupported.`);
+    super(`This application supports macOS and Linux; ${platform} is unsupported.`);
   }
 }
 
@@ -22,5 +29,5 @@ export function getPlatformInfo(platform = process.platform): PlatformInfo {
 
 export function startupErrorMessage(error: unknown): string {
   if (error instanceof UnsupportedPlatformError || error instanceof StartupConfigurationError) return error.message;
-  return `Crumb could not start: ${normalizeError(error).message}`;
+  return `The application could not start: ${normalizeError(error).message}`;
 }

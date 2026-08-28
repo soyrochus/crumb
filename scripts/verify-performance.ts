@@ -3,11 +3,13 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { NativeWindow as NativeWindowInstance, WindowOptions } from "@nativewindow/webview";
-import { listDirectory } from "../src/host/filesystem";
-import { getPreview } from "../src/host/preview";
-import { createRpcRouter, type RpcHandlers, type RpcRequest } from "../src/host/rpc";
-import type { Preview } from "../src/shared/contracts";
-import { ExplorerState } from "../src/ui/state";
+import { listDirectory } from "../src/app/host/filesystem";
+import { getPreview } from "../src/app/host/preview";
+import { createRpcRouter, type RpcRequest } from "../src/kit/host/rpc";
+import { operation, type Operations } from "../src/kit/shared/transport";
+import { validators } from "../src/app/shared/validators";
+import type { Preview } from "../src/app/shared/contracts";
+import { ExplorerState } from "../src/app/ui/state";
 import { buildNativeAddon } from "./build-native";
 import { buildUiHtml } from "./ui-artifact";
 
@@ -49,16 +51,16 @@ async function verifyNativeUi(html: string, fixtureRoot: string): Promise<UiRepo
     loadHtmlOrigin: () => string;
   };
   const { NativeWindow, loadHtmlOrigin } = nativeBinding;
-  const handlers: RpcHandlers = {
-    getPlatformInfo: () => ({
+  const operations = {
+    getPlatformInfo: operation(validators.getPlatformInfo, () => ({
       platform: process.platform === "darwin" ? "macos" : "linux",
       primaryModifier: process.platform === "darwin" ? "Meta" : "Control",
-    }),
-    getLocations: () => [{ id: `home:${fixtureRoot}`, label: "Home", path: fixtureRoot, kind: "home" }],
-    listDirectory: ({ path, showHidden }) => listDirectory(path, showHidden),
-    getPreview: ({ path }) => getPreview(path),
-  };
-  const route = createRpcRouter(handlers);
+    })),
+    getLocations: operation(validators.getLocations, () => [{ id: `home:${fixtureRoot}`, label: "Home", path: fixtureRoot, kind: "home" }]),
+    listDirectory: operation(validators.listDirectory, ({ path, showHidden }) => listDirectory(path, showHidden)),
+    getPreview: operation(validators.getPreview, ({ path }) => getPreview(path)),
+  } satisfies Operations;
+  const route = createRpcRouter(operations);
   const benchmarkScript = String.raw`<script>
     (() => {
       const waitForInitialRender = () => {

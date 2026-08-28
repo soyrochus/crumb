@@ -1,5 +1,5 @@
 import { isAbsolute, normalize } from "node:path";
-import type { DomainError, RpcMethod } from "./contracts";
+import type { DomainError } from "./transport";
 
 export class ValidationError extends Error {
   readonly code = "INVALID_INPUT" as const;
@@ -12,32 +12,23 @@ export function normalizeAbsolutePath(value: unknown): string {
   return normalize(value);
 }
 
-function expectPlainObject(value: unknown): Record<string, unknown> {
+export function expectPlainObject(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new ValidationError("Expected an object");
   }
   return value as Record<string, unknown>;
 }
 
-function expectNoKeys(value: unknown): Record<string, never> {
+export function expectNoKeys(value: unknown): Record<string, never> {
   const object = expectPlainObject(value);
   if (Object.keys(object).length !== 0) throw new ValidationError("Expected no arguments");
   return {};
 }
 
-export function validateRpcInput(method: RpcMethod, value: unknown): unknown {
-  if (method === "getPlatformInfo" || method === "getLocations") return expectNoKeys(value);
+export function expectOnlyKeys(value: unknown, allowed: readonly string[]): Record<string, unknown> {
   const object = expectPlainObject(value);
-  const path = normalizeAbsolutePath(object.path);
-  if (method === "getPreview") {
-    if (Object.keys(object).some((key) => key !== "path")) throw new ValidationError("Unexpected argument");
-    return { path };
-  }
-  if (typeof object.showHidden !== "boolean") throw new ValidationError("showHidden must be boolean");
-  if (Object.keys(object).some((key) => key !== "path" && key !== "showHidden")) {
-    throw new ValidationError("Unexpected argument");
-  }
-  return { path, showHidden: object.showHidden };
+  if (Object.keys(object).some((key) => !allowed.includes(key))) throw new ValidationError("Unexpected argument");
+  return object;
 }
 
 const errorCodes: Record<string, DomainError["code"]> = {

@@ -1,23 +1,21 @@
 import { describe, expect, test } from "bun:test";
-import { normalizeError, validateRpcInput } from "../src/shared/validation";
+import { expectNoKeys, expectOnlyKeys, normalizeAbsolutePath, normalizeError } from "../../src/kit/shared/validation";
 
-describe("RPC validation", () => {
+describe("generic input validation", () => {
   for (const invalid of [null, undefined, "", "relative", "a\0b", [], {}, 1]) {
     test(`rejects invalid path ${String(invalid)}`, () => {
-      expect(() => validateRpcInput("getPreview", { path: invalid })).toThrow();
+      expect(() => normalizeAbsolutePath(invalid)).toThrow();
     });
   }
 
   test("normalizes absolute paths", () => {
-    expect(validateRpcInput("listDirectory", { path: "/tmp/../tmp", showHidden: false }))
-      .toEqual({ path: "/tmp", showHidden: false });
+    expect(normalizeAbsolutePath("/tmp/../tmp")).toBe("/tmp");
   });
 
   test("rejects malformed objects and extra arguments", () => {
-    expect(() => validateRpcInput("getLocations", null)).toThrow();
-    expect(() => validateRpcInput("getPlatformInfo", { extra: true })).toThrow();
-    expect(() => validateRpcInput("listDirectory", { path: "/", showHidden: "yes" })).toThrow();
-    expect(() => validateRpcInput("getPreview", { path: "/", extra: true })).toThrow();
+    expect(() => expectNoKeys(null)).toThrow();
+    expect(() => expectNoKeys({ extra: true })).toThrow();
+    expect(() => expectOnlyKeys({ path: "/", extra: true }, ["path"])).toThrow();
   });
 });
 

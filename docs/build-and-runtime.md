@@ -4,7 +4,7 @@ This describes Crumb's build pipeline — the template's, not any one applicatio
 
 ## Commands
 
-- `bun run dev` builds the in-memory UI artifact and launches the native shell.
+- `bun run dev` builds the in-memory UI artifact and launches the application named in `app.config.ts`.
 - `bun run build:native` downloads, verifies, patches, and compiles the pinned Linux native addon.
 - `bun run build --target=linux-x64` produces `dist/crumb-linux-x64` on Linux x64.
 - `bun run build --target=macos-arm64` produces `dist/crumb-macos-arm64` on macOS arm64.

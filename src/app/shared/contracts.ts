@@ -1,12 +1,10 @@
-export type SupportedPlatform = "macos" | "linux";
-export type PrimaryModifier = "Meta" | "Control";
+import type { PlatformInfo } from "../../kit/host/platform";
+import type { DomainError, Result } from "../../kit/shared/transport";
+
+export type { DomainError, PlatformInfo, Result };
+
 export type EntryKind = "directory" | "file" | "symlink" | "other";
 export type TargetKind = Exclude<EntryKind, "symlink">;
-
-export interface PlatformInfo {
-  platform: SupportedPlatform;
-  primaryModifier: PrimaryModifier;
-}
 
 export interface Location {
   id: string;
@@ -69,26 +67,12 @@ export interface GenericPreview {
 
 export type Preview = DirectoryPreview | TextPreview | ImagePreview | GenericPreview;
 
-export type DomainErrorCode =
-  | "INVALID_INPUT"
-  | "NOT_FOUND"
-  | "PERMISSION_DENIED"
-  | "NOT_DIRECTORY"
-  | "UNAVAILABLE"
-  | "UNSUPPORTED_PLATFORM";
-
-export interface DomainError {
-  code: DomainErrorCode;
-  message: string;
-}
-
-export type Result<T> = { ok: true; value: T } | { ok: false; error: DomainError };
-
-export interface RpcMethods {
+/** The operations this application declares. The kit is generic over this map. */
+export type ExplorerOperations = {
   getPlatformInfo: { input: Record<string, never>; output: PlatformInfo };
   getLocations: { input: Record<string, never>; output: Location[] };
   listDirectory: { input: { path: string; showHidden: boolean }; output: DirectoryListing };
   getPreview: { input: { path: string }; output: Preview };
-}
+};
 
-export type RpcMethod = keyof RpcMethods;
+export type ExplorerOperation = keyof ExplorerOperations;

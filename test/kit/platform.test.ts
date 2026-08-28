@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { detectPlatform, getPlatformInfo, StartupConfigurationError, startupErrorMessage } from "../src/host/platform";
+import { detectPlatform, getPlatformInfo, StartupConfigurationError, startupErrorMessage } from "../../src/kit/host/platform";
 
 describe("platform support", () => {
   test("reports macOS modifier", () => {

@@ -2,13 +2,14 @@ import { createRequire } from "node:module";
 import type { BunPlugin } from "bun";
 import { buildNativeAddon } from "./build-native";
 import { buildUiHtml } from "./ui-artifact";
+import { appConfig } from "../app.config";
 
 type TargetName = "linux-x64" | "macos-arm64";
 const requested = (Bun.argv.find((argument) => argument.startsWith("--target="))?.split("=")[1]
   ?? (process.platform === "darwin" ? "macos-arm64" : "linux-x64")) as TargetName;
 const targets = {
-  "linux-x64": { bun: "bun-linux-x64" as const, addon: null, output: "dist/crumb-linux-x64" },
-  "macos-arm64": { bun: "bun-darwin-arm64" as const, addon: "@nativewindow/webview-darwin-arm64/native-window.darwin-arm64.node", output: "dist/crumb-macos-arm64" },
+  "linux-x64": { bun: "bun-linux-x64" as const, addon: null, output: `${appConfig.outputStem}-linux-x64` },
+  "macos-arm64": { bun: "bun-darwin-arm64" as const, addon: "@nativewindow/webview-darwin-arm64/native-window.darwin-arm64.node", output: `${appConfig.outputStem}-macos-arm64` },
 };
 const target = targets[requested];
 if (!target) throw new Error(`Unknown build target: ${requested}`);
@@ -26,12 +27,12 @@ else {
 }
 
 const embedPlugin: BunPlugin = {
-  name: "embed-crumb-runtime",
+  name: "embed-app-runtime",
   setup(build) {
-    build.onResolve({ filter: /^crumb:ui$/ }, () => ({ path: "crumb:ui", namespace: "crumb" }));
-    build.onLoad({ filter: /.*/, namespace: "crumb" }, () => ({ contents: `export default ${JSON.stringify(html)}`, loader: "js" }));
-    build.onResolve({ filter: /^crumb:native$/ }, () => ({ path: "native-window-wrapper", namespace: "crumb-native" }));
-    build.onLoad({ filter: /.*/, namespace: "crumb-native" }, () => ({
+    build.onResolve({ filter: /^app:ui$/ }, () => ({ path: "app:ui", namespace: "app" }));
+    build.onLoad({ filter: /.*/, namespace: "app" }, () => ({ contents: `export default ${JSON.stringify(html)}`, loader: "js" }));
+    build.onResolve({ filter: /^app:native$/ }, () => ({ path: "native-window-wrapper", namespace: "app-native" }));
+    build.onLoad({ filter: /.*/, namespace: "app-native" }, () => ({
       contents: `const binding = require(${JSON.stringify(addonPath)}); export default function getNativeBinding() { return { NativeWindow: binding.NativeWindow, loadHtmlOrigin: binding.loadHtmlOrigin }; }`,
       loader: "js",
     }));
@@ -39,7 +40,7 @@ const embedPlugin: BunPlugin = {
 };
 
 const result = await Bun.build({
-  entrypoints: ["src/host/main.ts"],
+  entrypoints: [appConfig.entries.hostMain],
   compile: { target: target.bun, outfile: target.output, autoloadDotenv: false, autoloadBunfig: false },
   minify: true,
   plugins: [embedPlugin],
