@@ -83,6 +83,8 @@ bun run dev
 
 A window opens showing the **starter** — a minimal application in `src/app/`: one page, one declared operation, and a button that calls the Bun host. It is about forty lines you can read in full before changing anything, and it is what you edit to build your own app.
 
+For a step-by-step walkthrough of the application structure, browser-to-host bridge, development loop, and standalone release build, see [How to build a desktop app with Bun](docs/how-to-build-a-desktop-app-with-bun.md).
+
 To see something substantial, run the worked example:
 
 ```sh
