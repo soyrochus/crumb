@@ -1,6 +1,6 @@
 {
   "name": "crumb",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "devDependencies": {
     "@types/bun": "1.4.0",
     "typescript": "7.0.2"
