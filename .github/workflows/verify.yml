@@ -1,7 +1,7 @@
 name: verify
 
 # Release verification only. Each run compiles the Linux native addon from
-# source and builds two executables on two platforms, which is far too
+# source and builds every registered application on two platforms, which is far too
 # expensive to spend on every push. Day-to-day checking is local:
 # `bun test`, `bun run typecheck`, `bun run verify:readonly`.
 #
@@ -42,6 +42,8 @@ jobs:
         with:
           bun-version: 1.4.0
 
+      - uses: dtolnay/rust-toolchain@stable
+
       # The Linux native addon is compiled from a checksum-pinned source patch
       # on every run. This is the slowest step in the workflow by a wide margin
       # and is the concrete argument for prebuilding the addon.
@@ -70,6 +72,12 @@ jobs:
 
       - name: Build the file-explorer example
         run: bun run build --example=file-explorer --target=${{ matrix.target }}
+
+      - name: Build the native-extension probe
+        run: bun run build --example=native-probe --target=${{ matrix.target }}
+
+      - name: Build the activity-monitor example
+        run: bun run build --example=activity-monitor --target=${{ matrix.target }}
 
       - name: Inspect artifacts
         run: ls -la dist/

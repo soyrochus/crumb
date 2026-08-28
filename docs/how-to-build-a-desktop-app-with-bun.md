@@ -492,18 +492,18 @@ bun run build --example=activity-monitor --target=linux-x64
 
 The Linux x64 addon introduces no non-system dynamic dependency; its observed direct ELF dependencies are the system loader, libc, and libgcc. On the implementation host, the first optimized extension compile took 8.2 seconds, a verified warm-cache lookup took 2.2 milliseconds, and the subsequent selected-application build took 0.18 seconds. These measurements vary by machine.
 
-The current metric record is explicit about verification status:
+The current metric record is explicit about platform behavior:
 
 | Metric | Linux x64 | macOS arm64 |
 | --- | --- | --- |
-| Overall CPU, total/used memory, process count | Supplied and verified | Implemented through `sysinfo`; verification deferred |
-| 1/5/15-minute load average | Supplied and verified | Implemented through `sysinfo`; verification deferred |
-| Per-process CPU, memory, state, and parent PID | Supplied and verified; parent PID can be unavailable | Implemented through `sysinfo`; verification deferred |
-| Executable path and process timing | Supplied when the OS permits inspection; otherwise unavailable | Implemented as optional values; verification deferred |
+| Overall CPU, total/used memory, process count | Supplied and verified | Supplied and verified |
+| 1/5/15-minute load average | Supplied and verified | Supplied and verified |
+| Per-process CPU, memory, state, and parent PID | Supplied and verified; parent PID can be unavailable | Supplied and verified; parent PID can be unavailable |
+| Executable path and process timing | Supplied when the OS permits inspection; otherwise unavailable | Supplied when the OS permits inspection; otherwise unavailable |
 
 Optional native values become `null` in the shared application contract and the UI prints **Unavailable**. Zero remains a real measured value.
 
-The crate is structured for both supported operating systems, but the activity-monitor-specific macOS arm64 artifact, relocation, platform-difference, and timing checks are currently deferred. The existing dependency-free `native-probe` remains the cross-platform verification of Crumb's extension mechanism.
+The addon and executable-only relocation journey are verified on Linux x64 and macOS arm64. On macOS, the addon adds only Apple system dependencies and declares macOS 11.0 as its minimum, below Crumb's macOS 13.0 baseline. A clean local build of all four registered macOS applications with dependency sources cached took 7.90 seconds, including 6.32 seconds for the activity-monitor native compile; the first dependency-fetching compile took 11.14 seconds. The dependency-free `native-probe` remains the smallest cross-platform verification of Crumb's extension mechanism.
 
 ### Treat native code as trusted process code
 
@@ -576,6 +576,36 @@ bun run build --example=notes --target=macos-arm64
 ```
 
 The flag is called `--example` because the repository ships its worked applications under `examples/`, but registered applications are first-class build targets. An unknown name fails immediately and lists the available entries.
+
+## 11. Give a coding assistant the template's ceremonies
+
+Several of the steps above span files that must agree: an operation is five
+parts, a native extension is a crate shape plus a declaration plus a validated
+operation, and the security policy is declared twice. A coding assistant that
+has not read this guide will get those almost right.
+
+Crumb ships that knowledge as skills. `skills/` is the canonical source and
+names no assistant; one command installs the copies each one reads:
+
+```sh
+bun run install:skills
+```
+
+That writes into `.claude/skills/`, `.codex/skills/`, and `.github/skills/`.
+Narrow it with `--target=<assistant>`, preview it with `--list`, and verify the
+committed copies with `--check`. The installer only creates and replaces the
+skill names `skills/` contains: skills another tool put in those directories, or
+that you wrote yourself, are left alone, and a skill you delete from `skills/`
+is left installed rather than removed.
+
+Edit skills in `skills/` and reinstall — a change made to an installed copy is
+overwritten by the next run. A skill is a shortcut to this guide, not a
+replacement for it: where a skill disagrees with this document or with a
+requirement under `openspec/specs/`, the document and the requirement govern.
+
+Skills are repository material only. They change nothing about the host, the
+build pipeline, or the executable, and none of the workflows above depend on
+having installed them.
 
 ## What happens during a release build
 

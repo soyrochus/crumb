@@ -12,6 +12,7 @@
     "build:native": "bun run scripts/build-native.ts",
     "rebuild:extensions": "bun run scripts/rebuild-extensions.ts",
     "build:ui": "bun run scripts/build-ui.ts",
+    "install:skills": "bun run scripts/install-skills.ts",
     "test": "bun test",
     "typecheck": "bunx tsc --noEmit",
     "verify:performance": "bun run scripts/verify-performance.ts",

@@ -39,15 +39,19 @@ The same fixture was built on Linux x64 and copied by itself into an otherwise e
 
 The clean extension compile took 2.12 seconds; an incremental forced compile took 0.61 seconds; a verified warm-cache lookup took 1.4 milliseconds. The host had Rust 1.97.1, Cargo 1.97.1, and Apple Command Line Tools supplying `cc`, the macOS SDK, `install_name_tool`, and `otool`. TypeScript-only builds invoked no Cargo extension build.
 
-### Activity monitor — Linux x64 first
+### Activity monitor
 
 The Rust-backed `activity-monitor` application was implemented and checked first on Linux x64. Its `system-monitor` addon returned a real snapshot, a whole process list, and per-process details through Bun; an exited or absent process returned no details rather than failing the sample. The optimized addon reports only `libgcc_s`, libc, the ELF loader, and `linux-vdso`, with no non-system dynamic dependency. Its maximum referenced glibc symbol version is `GLIBC_2.34`, matching the existing native binding baseline.
 
-The first optimized extension compile with `sysinfo` and `napi-rs` took 8.2 seconds on the implementation host. A verified warm-cache lookup took 2.2 milliseconds, followed by a 0.18-second selected-application build. `dist/activity-monitor-linux-x64` is an 82-MiB x86-64 ELF executable. It was copied alone to an otherwise empty temporary directory and launched successfully on native Wayland for the bounded relocation check. The activity-monitor-specific macOS arm64 artifact, relocation, platform-difference, and timing checks are explicitly deferred.
+The first optimized extension compile with `sysinfo` and `napi-rs` took 8.2 seconds on the implementation host. A verified warm-cache lookup took 2.2 milliseconds, followed by a 0.18-second selected-application build. `dist/activity-monitor-linux-x64` is an 82-MiB x86-64 ELF executable. It was copied alone to an otherwise empty temporary directory and launched successfully on native Wayland for the bounded relocation check.
+
+On macOS arm64, the addon is an arm64 Mach-O Node-API library with the sanitized `@rpath/system-monitor.node` install name. It links only Apple IOKit and CoreFoundation frameworks plus `/usr/lib/libiconv.2.dylib` and `/usr/lib/libSystem.B.dylib`; it declares macOS 11.0 as its minimum, below Crumb's macOS 13.0 baseline. The addon supplied overall CPU, total and used memory, process count, 1/5/15-minute load, and per-process CPU, memory, state, parent PID, executable path, start time, and runtime. Optional fields remain explicit for permission failures and disappearing processes.
+
+`dist/activity-monitor-macos-arm64` is a 63-MiB arm64 Mach-O executable with the addon embedded. Copied by itself to an otherwise empty temporary directory, it displayed a real system snapshot and a populated process list, including its own relocated process. Its first dependency-fetching extension compile took 11.14 seconds. With dependency sources cached and both extension target directories removed, a clean build of all four registered applications took 7.90 seconds, including 6.32 seconds for the activity-monitor native compile; a warm extension lookup took 1.5 milliseconds and the selected-application build took 0.17 seconds.
 
 ## Automated verification
 
-The pre-extension `bun test`, `bun run typecheck`, and `bun run verify:readonly` acceptance passed on macOS arm64 and Ubuntu Linux x64. With the Linux-first activity monitor included, the Linux suite has 98 passing tests and 234 expectations; strict typechecking and the unchanged file-explorer read-only scan also pass. The activity monitor additionally has three passing Rust tests, including the exited-process case, and passes `cargo clippy` with warnings denied. Filesystem and native-cache fixtures are created below the operating-system temporary directory and removed after every test; production and user-owned paths are not modified.
+The pre-extension `bun test`, `bun run typecheck`, and `bun run verify:readonly` acceptance passed on macOS arm64 and Ubuntu Linux x64. With the activity monitor included, the Linux suite had 98 passing tests and 234 expectations; the current macOS suite has 116 passing tests and 296 expectations after the separate agent-skills additions. Strict typechecking and the unchanged file-explorer read-only scan pass. The activity monitor additionally has three passing Rust tests, including the exited-process case, and passes `cargo clippy` with warnings denied on both platforms. Filesystem and native-cache fixtures are created below the operating-system temporary directory and removed after every test; production and user-owned paths are not modified.
 
 The Linux performance acceptance remained within its bounds: 153-ms UI startup, 18-ms 5,000-row DOM commit, 15.7-ms ordinary listing, 5.3-ms text preview, 12.1-ms image preview, and no measurable retained RSS after the superseded payload check.
 
@@ -55,11 +59,11 @@ The Linux performance acceptance remained within its bounds: 153-ms UI startup, 
 
 | Check | Result | Limit |
 | --- | ---: | ---: |
-| Production UI startup | 138 ms | 5,000 ms |
+| Production UI startup | 129 ms | 5,000 ms |
 | Production-styled 5,000-row DOM commit | 5 ms | 2,000 ms |
-| 250-entry host listing | 24.5 ms | 5,000 ms |
-| Bounded 1-MiB text preview | 1.6 ms | 3,000 ms |
-| Bounded 8-MiB image preview | 2.4 ms | 3,000 ms |
-| RSS retained after superseded payload release | 0.2 MiB | 256 MiB |
+| 250-entry host listing | 16.3 ms | 5,000 ms |
+| Bounded 1-MiB text preview | 1.2 ms | 3,000 ms |
+| Bounded 8-MiB image preview | 2.0 ms | 3,000 ms |
+| RSS retained after superseded payload release | 0.1 MiB | 256 MiB |
 
 The performance command creates all data below the operating-system temporary directory, briefly opens a native verification window, closes it automatically, and removes its fixture directory.

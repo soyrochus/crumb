@@ -91,8 +91,8 @@ Mirror `examples/file-explorer/` exactly; deviating from the sibling's shape is 
 
 These checks are intentionally not part of the Linux-first implementation requested on 2026-08-28.
 
-- [ ] 10.1 Build the `sysinfo` Node-API addon for macOS arm64 and inspect its dynamic dependencies and minimum macOS version
-- [ ] 10.2 Build `activity-monitor` for macOS arm64 and confirm the extension is embedded
-- [ ] 10.3 Relocate the macOS executable by itself and confirm it returns a real snapshot and process list
-- [ ] 10.4 Record macOS-specific metric behavior and the added macOS all-applications build time
-- [ ] 10.5 Complete cross-platform acceptance after the deferred checks pass
+- [x] 10.1 Build the `sysinfo` Node-API addon for macOS arm64 and inspect its dynamic dependencies and minimum macOS version
+- [x] 10.2 Build `activity-monitor` for macOS arm64 and confirm the extension is embedded
+- [x] 10.3 Relocate the macOS executable by itself and confirm it returns a real snapshot and process list
+- [x] 10.4 Record macOS-specific metric behavior and the added macOS all-applications build time
+- [x] 10.5 Complete cross-platform acceptance after the deferred checks pass

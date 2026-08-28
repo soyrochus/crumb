@@ -79,7 +79,12 @@ bun run dev --example=activity-monitor
 
 The example shows CPU and memory totals, load averages, a sortable process list, and per-process detail. Sampling runs outside the window event loop, overlapping refreshes are prevented, shutdown cancels in-flight work, unavailable metrics remain visibly unavailable, and process names are inserted with `textContent`. There is deliberately no operation that kills, suspends, reprioritizes, or otherwise acts on a process.
 
-Building this example requires stable Rust and Cargo; [rustup](https://rustup.rs/) is the recommended installer. The Linux x64 implementation and standalone build are verified. The source is written for Linux and macOS, but the activity-monitor-specific macOS arm64 artifact and relocation check is deferred.
+Building this example requires stable Rust and Cargo; [rustup](https://rustup.rs/) is the recommended installer. Its native addon, embedded standalone build, and executable-only relocation journey are verified on Linux x64 and macOS arm64.
+
+<figure>
+  <img src="images/activity-monitor-macos.png" alt="The activity-monitor example running on macOS">
+  <figcaption>The <code>activity-monitor</code> example on macOS</figcaption>
+</figure>
 
 <figure>
   <img src="images/activity-monitor-linux.png" alt="The activity-monitor example running on Linux">
@@ -423,7 +428,7 @@ Register cleanup with `registerShutdownHandler` from `src/kit/host/shutdown.ts`.
 
 Measured on the verified macOS arm64 host, the dependency-free probe took 2.12 seconds for a cold release compile, 0.61 seconds for an incremental forced compile, and 1.4 milliseconds for a verified warm-cache lookup. Real extensions with dependencies will cost more. The release build reports non-system dynamic dependencies; the probe adds none.
 
-On the Linux x64 implementation host, the first optimized `activity-monitor` extension compile with `sysinfo` and `napi-rs` took 8.2 seconds. A verified warm-cache lookup took 2.2 milliseconds and the subsequent selected-application build completed in 0.18 seconds. These are observations, not performance guarantees; macOS arm64 timing remains deferred with its platform check.
+On the Linux x64 implementation host, the first optimized `activity-monitor` extension compile with `sysinfo` and `napi-rs` took 8.2 seconds. A verified warm-cache lookup took 2.2 milliseconds and the subsequent selected-application build completed in 0.18 seconds. On macOS arm64, the first dependency-fetching compile took 11.14 seconds; with dependency sources cached and extension targets removed, all four registered applications built in 7.90 seconds, including 6.32 seconds for `activity-monitor`'s native compile. Its verified warm-cache lookup took 1.5 milliseconds and selected-application build took 0.17 seconds. These are observations, not performance guarantees.
 
 ### Developer tools
 
@@ -454,6 +459,8 @@ The patch is stored at [`native/nativewindow-webview-v1.0.6-wayland.patch`](./na
 | `bun run typecheck` | Run strict TypeScript checks |
 | `bun run verify:performance` | Run bounded host and native 5,000-row UI performance checks |
 | `bun run verify:readonly` | Verify the production read-only boundary |
+| `bun run install:skills` | Install the template's agent skills for every supported assistant |
+| `bun run install:skills --check` | Fail if an installed skill copy has drifted from `skills/` |
 
 ## Project structure
 
@@ -473,10 +480,37 @@ test/kit/      Template tests: platform, validation, RPC surface, selection,
                and the release developer-tools invariant
 docs/          Build, runtime, and feasibility notes
 openspec/      Change proposals, design, requirements, and task tracking
+skills/        Canonical, vendor-neutral agent skills; installed copies are generated
 images/        Crumb artwork
 ```
 
 Nothing under `src/kit/` imports from `src/app/`, and the kit names no operation. Moving `src/app/` aside leaves the kit typechecking cleanly — that is a test, not an aspiration.
+
+## Agent skills
+
+Crumb ships skills for coding assistants, covering the places where a partially
+correct result still builds and runs: declaring a host operation, adding a Rust
+native extension, and registering a second application.
+
+[`skills/`](skills/) is the canonical source and names no vendor. Install the
+copies each assistant reads with one command:
+
+```sh
+bun run install:skills                    # Claude, Codex, and Copilot
+bun run install:skills --target=claude    # one assistant
+bun run install:skills --list             # what a run would write, writing nothing
+bun run install:skills --check            # fail if an installed copy has drifted
+```
+
+The copies are committed, so a fresh clone works with an assistant before anyone
+runs anything; `--check` is what keeps them honest. The installer only creates
+and replaces the skill names `skills/` contains — it never touches anything else
+in those directories, including the skills the OpenSpec CLI writes there, and it
+does not remove a skill you delete from `skills/`.
+
+A skill is a shortcut to the documented workflow, not a second specification of
+it. Where a skill and a requirement under `openspec/specs/` disagree, the
+requirement governs.
 
 ## Verification
 
@@ -491,7 +525,7 @@ bun run verify:performance
 bun run verify:readonly
 ```
 
-The current suite contains 98 automated tests and 234 expectations covering filesystem behavior, validation, previews, navigation state, activity-monitor formatting and refresh coordination, supported platforms, shutdown, extension declarations, cache safety, watching, and the production capability boundary. The performance command briefly opens a native window and closes it automatically. The complete pre-activity-monitor suite and relocated `native-probe` extension journey are verified on macOS arm64 and Ubuntu 26.04 x64/Wayland; both relocated probe executables returned `nativeProbeAnswer: 42`. The activity monitor's Rust tests, TypeScript tests, real-data addon calls, embedded release build, and relocated launch are verified on Linux x64; its macOS arm64 application check is deferred. Fixtures are created only below the operating system's temporary directory and are removed after each run.
+The current suite contains 116 automated tests and 296 expectations covering filesystem behavior, validation, previews, navigation state, activity-monitor formatting and refresh coordination, supported platforms, shutdown, extension declarations, cache safety, watching, installed agent-skill integrity, and the production capability boundary. The performance command briefly opens a native window and closes it automatically. The activity monitor's Rust tests, TypeScript tests, real-data addon calls, embedded release build, and executable-only relocation journey are verified on macOS arm64 and Ubuntu 26.04 x64/Wayland. Both relocated probe executables returned `nativeProbeAnswer: 42`; both relocated activity-monitor executables displayed real system snapshots and process lists. Fixtures are created only below the operating system's temporary directory and are removed after each run.
 
 ## Current limitations
 
