@@ -30,9 +30,18 @@ const targets = {
   "macos-arm64": { bun: "bun-darwin-arm64" as const, addon: "@nativewindow/webview-darwin-arm64/native-window.darwin-arm64.node", output: outputPath(outputName, "macos-arm64") },
 };
 const target = targets[requested];
-if (!target) throw new Error(`Unknown build target: ${requested}`);
-if ((requested === "linux-x64" && process.platform !== "linux") || (requested === "macos-arm64" && process.platform !== "darwin")) {
-  throw new Error(`${requested} releases must be built on their corresponding operating system until native cross-compilation is proven.`);
+if (!target) {
+  console.error(`Unknown build target: ${requested}. Available targets: ${Object.keys(targets).join(", ")}.`);
+  process.exit(1);
+}
+// Release builds run on their own operating system until native cross-compilation is proven:
+// the other platform's addon is an optional dependency this machine never installed.
+const buildHost = requested === "macos-arm64" ? "darwin" : "linux";
+if (process.platform !== buildHost) {
+  const hostName = requested === "macos-arm64" ? "macOS arm64" : "Linux x64";
+  const localTarget = process.platform === "darwin" ? "macos-arm64" : "linux-x64";
+  console.error(`${requested} releases must be built on their corresponding operating system until native cross-compilation is proven. Build this target on ${hostName}, or run \`bun run build --target=${localTarget}\` here.`);
+  process.exit(1);
 }
 
 const html = await buildUiHtml(application);
