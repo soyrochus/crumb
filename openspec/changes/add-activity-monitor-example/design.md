@@ -6,7 +6,7 @@ Three constraints from the existing repository shape this.
 
 **The example shape is already settled.** `examples/file-explorer/` has `app.config.ts`, `src/host/`, `src/shared/`, `src/ui/`, and `test/`, is registered in the root `app.config.ts`, and is selected with `--example=<name>`. `activity-monitor` is that shape plus a `native/` directory. Nothing structural needs inventing, and deviating from the sibling's layout would be its own small cost.
 
-**It depends on `add-rust-extensions` and cannot start early.** That change proves Cargo invocation on both targets, `app:ext/<name>`, embedding, and the shutdown hook. Building the example before those exist means debugging the mechanism and its first consumer simultaneously — the exact trap the probe crate was introduced to avoid.
+**It depends on `add-rust-extensions` and cannot start early.** That change proves Cargo invocation, `app:ext/<name>`, embedding, and the shutdown hook. The activity monitor is implemented and accepted on Linux x64 first. macOS arm64 artifact and relocation checks are deliberately deferred, while the source remains cross-platform.
 
 **This is the first application in the repository that needs Cargo.** `file-explorer` and `starter` are TypeScript-only. Adding it means "build all applications" compiles Rust on both targets, which lands in the release workflow that was already made tag-only over one addon.
 
@@ -76,8 +76,9 @@ No deployment. Applied after `add-rust-extensions`.
 3. The declared operations and their validators.
 4. The user interface against fixture data.
 5. Wire the interface to the real operations; add refresh and shutdown behaviour.
-6. Register the application and verify both targets, including a relocated executable.
+6. Register the application and verify Linux x64, including a relocated executable.
 7. Documentation presenting the two examples.
+8. Complete the explicitly deferred macOS arm64 artifact and relocation checks later.
 
 ## Open Questions
 

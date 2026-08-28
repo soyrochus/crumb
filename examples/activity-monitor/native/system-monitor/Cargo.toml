@@ -1,0 +1,20 @@
+[package]
+name = "crumb-system-monitor"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+
+[lib]
+name = "crumb_system_monitor"
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "3.8.3", default-features = false, features = ["napi4", "dyn-symbols"] }
+napi-derive = "3.5.3"
+sysinfo = { version = "0.39.6", default-features = false, features = ["system"] }
+
+[build-dependencies]
+napi-build = "2.3.1"
+
+[profile.release]
+strip = "symbols"

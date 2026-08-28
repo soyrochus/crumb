@@ -39,9 +39,17 @@ The same fixture was built on Linux x64 and copied by itself into an otherwise e
 
 The clean extension compile took 2.12 seconds; an incremental forced compile took 0.61 seconds; a verified warm-cache lookup took 1.4 milliseconds. The host had Rust 1.97.1, Cargo 1.97.1, and Apple Command Line Tools supplying `cc`, the macOS SDK, `install_name_tool`, and `otool`. TypeScript-only builds invoked no Cargo extension build.
 
+### Activity monitor — Linux x64 first
+
+The Rust-backed `activity-monitor` application was implemented and checked first on Linux x64. Its `system-monitor` addon returned a real snapshot, a whole process list, and per-process details through Bun; an exited or absent process returned no details rather than failing the sample. The optimized addon reports only `libgcc_s`, libc, the ELF loader, and `linux-vdso`, with no non-system dynamic dependency. Its maximum referenced glibc symbol version is `GLIBC_2.34`, matching the existing native binding baseline.
+
+The first optimized extension compile with `sysinfo` and `napi-rs` took 8.2 seconds on the implementation host. A verified warm-cache lookup took 2.2 milliseconds, followed by a 0.18-second selected-application build. `dist/activity-monitor-linux-x64` is an 82-MiB x86-64 ELF executable. It was copied alone to an otherwise empty temporary directory and launched successfully on native Wayland for the bounded relocation check. The activity-monitor-specific macOS arm64 artifact, relocation, platform-difference, and timing checks are explicitly deferred.
+
 ## Automated verification
 
-The pre-extension `bun test`, `bun run typecheck`, and `bun run verify:readonly` acceptance passed on macOS arm64 and Ubuntu Linux x64. After the native-extension change, the macOS suite has 90 passing tests and 193 expectations; strict typechecking and the unchanged read-only scan also pass. Filesystem and native-cache fixtures are created below the operating-system temporary directory and removed after every test; production and user-owned paths are not modified.
+The pre-extension `bun test`, `bun run typecheck`, and `bun run verify:readonly` acceptance passed on macOS arm64 and Ubuntu Linux x64. With the Linux-first activity monitor included, the Linux suite has 98 passing tests and 234 expectations; strict typechecking and the unchanged file-explorer read-only scan also pass. The activity monitor additionally has three passing Rust tests, including the exited-process case, and passes `cargo clippy` with warnings denied. Filesystem and native-cache fixtures are created below the operating-system temporary directory and removed after every test; production and user-owned paths are not modified.
+
+The Linux performance acceptance remained within its bounds: 153-ms UI startup, 18-ms 5,000-row DOM commit, 15.7-ms ordinary listing, 5.3-ms text preview, 12.1-ms image preview, and no measurable retained RSS after the superseded payload check.
 
 `bun run verify:performance` passed on the verified macOS host with these measurements:
 

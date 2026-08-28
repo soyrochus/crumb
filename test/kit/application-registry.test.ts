@@ -37,9 +37,9 @@ describe("application selection", () => {
 });
 
 describe("this repository's registry", () => {
-  test("defaults to the minimal starter, with the explorer available by name", () => {
+  test("defaults to the minimal starter, with all examples available by name", () => {
     expect(registry.default).toBe("starter");
-    expect(Object.keys(registry.applications).sort()).toEqual(["file-explorer", "native-probe", "starter"]);
+    expect(Object.keys(registry.applications).sort()).toEqual(["activity-monitor", "file-explorer", "native-probe", "starter"]);
   });
 
   test("each application builds to its own filename", () => {

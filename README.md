@@ -19,7 +19,7 @@ If you can build your app as a web page that needs no server, Crumb turns it int
 
 When TypeScript is not enough, declare a Rust crate by logical name in your application config and import it from trusted host code as `app:ext/<name>`. The normal `bun run dev` and `bun run build` commands compile, cache, load, watch, and embed it. There is no separate native packaging workflow and no adjacent `.node` file or Rust toolchain beside the finished executable.
 
-The three-pane file browser in the screenshots below is **not** Crumb. It is `file-explorer`, a worked example that proves the template works. It lives in `examples/` and stays out of your way — run it with `bun run dev --example=file-explorer`.
+The repository includes two worked applications: `file-explorer` shows the TypeScript-only path, while `activity-monitor` shows the same ordinary web-app structure gaining real operating-system access from an application-owned Rust extension. Both live under `examples/`, separate from the starter you edit.
 
 Crumb is built on [Bun](https://bun.com/) and is, in passing, a practical exploration of Bun as an application toolchain: package management, direct TypeScript execution, browser bundling, automated testing, Node-API compatibility, Cargo orchestration for Rust extensions, and compilation into standalone executables.
 
@@ -58,6 +58,18 @@ bun run dev --example=file-explorer
 - No file creation, editing, deletion, renaming, moving, or shell execution
 
 That last point is the example's own choice, not a limit Crumb imposes. `file-explorer` restricts itself to inspection and bounded reads because that keeps a file browser simple and auditable, and `bun run verify:readonly` enforces it. An app you build on Crumb may read and write freely.
+
+## The activity-monitor native-extension example
+
+`examples/activity-monitor/` is the complete worked example for Crumb's Rust path. Its HTML, CSS, and TypeScript remain a conventional client-side interface; an application-owned `system-monitor` crate uses `sysinfo` and `napi-rs` to collect live system and process information asynchronously. Trusted host handlers import it as `app:ext/system-monitor`, normalize its structured output, and expose only three validated, read-only operations to the page.
+
+```sh
+bun run dev --example=activity-monitor
+```
+
+The example shows CPU and memory totals, load averages, a sortable process list, and per-process detail. Sampling runs outside the window event loop, overlapping refreshes are prevented, shutdown cancels in-flight work, unavailable metrics remain visibly unavailable, and process names are inserted with `textContent`. There is deliberately no operation that kills, suspends, reprioritizes, or otherwise acts on a process.
+
+Building this example requires stable Rust and Cargo; [rustup](https://rustup.rs/) is the recommended installer. The Linux x64 implementation and standalone build are verified. The source is written for Linux and macOS, but the activity-monitor-specific macOS arm64 artifact and relocation check is deferred.
 
 <figure>
   <img src="images/screenshot-macos.png" alt="The file-explorer example running on macOS">
@@ -104,6 +116,14 @@ bun run dev --example=file-explorer
 ```
 
 That is the three-pane file browser in the screenshots below. It lives in `examples/file-explorer/` and you never have to delete it — it is a separate application, not something in your way.
+
+To see the substantial native-extension example, run:
+
+```sh
+bun run dev --example=activity-monitor
+```
+
+The first run compiles its Rust crate. Later runs reuse the verified cached addon until its Rust sources or lockfile change.
 
 ## Bun in this project
 
@@ -377,7 +397,7 @@ if (typeof readSystemInfo !== "function") {
 const result = readSystemInfo();
 ```
 
-The permanent `native-probe` fixture demonstrates the complete shape in [`examples/native-probe/`](./examples/native-probe/) and [`src/app/native/probe/`](./src/app/native/probe/). Its config lazily loads its local handler module so repository tooling can inspect all application configs before selecting and building one.
+The permanent `native-probe` fixture demonstrates the smallest dependency-free shape in [`examples/native-probe/`](./examples/native-probe/) and [`src/app/native/probe/`](./src/app/native/probe/). The [`activity-monitor` example](./examples/activity-monitor/) demonstrates the production-shaped path: `napi-rs` objects, asynchronous tasks, a third-party Rust dependency, repeated calls, shutdown cancellation, structured normalization, and a complete UI.
 
 The ordinary commands own the native build; do not run `cargo build` as a separate prerequisite. For the default starter:
 
@@ -398,6 +418,8 @@ Register cleanup with `registerShutdownHandler` from `src/kit/host/shutdown.ts`.
 
 Measured on the verified macOS arm64 host, the dependency-free probe took 2.12 seconds for a cold release compile, 0.61 seconds for an incremental forced compile, and 1.4 milliseconds for a verified warm-cache lookup. Real extensions with dependencies will cost more. The release build reports non-system dynamic dependencies; the probe adds none.
 
+On the Linux x64 implementation host, the first optimized `activity-monitor` extension compile with `sysinfo` and `napi-rs` took 8.2 seconds. A verified warm-cache lookup took 2.2 milliseconds and the subsequent selected-application build completed in 0.18 seconds. These are observations, not performance guarantees; macOS arm64 timing remains deferred with its platform check.
+
 ### Developer tools
 
 `bun run dev` enables the WebView's developer tools so you can inspect the page you are building. Release builds disable them, and no application configuration can turn them back on — the flag comes from the launch path, not from `app.config.ts`, so a released executable cannot ship an inspectable WebView.
@@ -414,6 +436,7 @@ The patch is stored at [`native/nativewindow-webview-v1.0.6-wayland.patch`](./na
 | --- | --- |
 | `bun run dev` | Build and launch the default application, watching for changes |
 | `bun run dev --example=file-explorer` | Run a named application instead |
+| `bun run dev --example=activity-monitor` | Run the Rust-backed activity monitor example |
 | `bun run dev --no-watch` | Run once without watching |
 | `bun run build:native` | Build the patched Linux native addon |
 | `bun run rebuild:extensions --example=<name>` | Clean and rebuild a selected application's declared extensions |
@@ -434,7 +457,8 @@ src/kit/       The template: window bootstrap, RPC router and browser bridge,
                validation primitives, platform detection, transport types
 src/app/       The starter — a minimal application. This is what you edit.
 examples/
-  file-explorer/  The worked example, with its own config, source, and tests
+  file-explorer/  TypeScript-only worked example, with its own config and tests
+  activity-monitor/ Rust native-extension worked example and system-monitor crate
   native-probe/   Permanent end-to-end fixture for native extensions
 app.config.ts  Registry of available applications and which one is default
 main.ts        Release entry point: hands an application to the kit
@@ -462,7 +486,7 @@ bun run verify:performance
 bun run verify:readonly
 ```
 
-The current suite contains 90 automated tests and 193 expectations covering filesystem behavior, validation, previews, navigation state, supported platforms, shutdown, extension declarations, cache safety, watching, and the production capability boundary. The performance command briefly opens a native window and closes it automatically. The complete suite and the relocated `native-probe` extension journey are verified on macOS arm64 and Ubuntu 26.04 x64/Wayland; both relocated executables returned `nativeProbeAnswer: 42`. Fixtures are created only below the operating system's temporary directory and are removed after each run.
+The current suite contains 98 automated tests and 234 expectations covering filesystem behavior, validation, previews, navigation state, activity-monitor formatting and refresh coordination, supported platforms, shutdown, extension declarations, cache safety, watching, and the production capability boundary. The performance command briefly opens a native window and closes it automatically. The complete pre-activity-monitor suite and relocated `native-probe` extension journey are verified on macOS arm64 and Ubuntu 26.04 x64/Wayland; both relocated probe executables returned `nativeProbeAnswer: 42`. The activity monitor's Rust tests, TypeScript tests, real-data addon calls, embedded release build, and relocated launch are verified on Linux x64; its macOS arm64 application check is deferred. Fixtures are created only below the operating system's temporary directory and are removed after each run.
 
 ## Current limitations
 

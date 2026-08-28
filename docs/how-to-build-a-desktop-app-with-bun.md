@@ -447,6 +447,64 @@ bun run build --target=linux-x64
 
 For a separately registered application, add `--example=<name>` to `dev`, `rebuild:extensions`, and `build`. Release compilation embeds every declared extension in the standalone executable and reports any non-system dynamic dependency introduced by the crate. Test the executable after copying it by itself into an otherwise empty directory, and exercise an operation that actually calls each extension; opening the window alone does not prove that an embedded addon works.
 
+### Study the complete activity-monitor example
+
+The minimal `answer()` crate above makes the mechanics visible without dependencies. For a realistic application, use [`examples/activity-monitor/`](../examples/activity-monitor/) as the worked reference:
+
+```text
+examples/activity-monitor/
+├── app.config.ts
+├── native/system-monitor/
+│   ├── Cargo.toml
+│   ├── Cargo.lock
+│   ├── build.rs
+│   └── src/lib.rs
+├── src/
+│   ├── host/handlers.ts
+│   ├── shared/{contracts,validators}.ts
+│   └── ui/{index.html,styles.css,app.ts,client.ts,state.ts}
+└── test/
+```
+
+Launch it on Linux x64 from a native Wayland session:
+
+```sh
+bun run dev --example=activity-monitor
+```
+
+The first run validates the `nativeExtensions` declaration and compiles the Rust crate. The crate uses `sysinfo` for system data and `napi-rs` `AsyncTask`s for Node-API promises, so process enumeration runs on Bun's worker pool instead of blocking the window event loop. It returns one structured system snapshot, one whole-process array, and optional per-process detail. A PID that exits during inspection returns `null`, and fields the platform cannot supply are represented as unavailable rather than zero.
+
+The host module imports `app:ext/system-monitor`; the browser does not. Host handlers validate and normalize every native result before `systemSnapshot`, `processList`, or `processDetails` crosses the existing Crumb bridge. Refresh requests cannot overlap, auto-refresh is opt-in at five seconds, and the registered shutdown handler tells in-flight native tasks to stop. The UI exposes no process-control operation.
+
+Run its application and Rust tests directly when changing the example:
+
+```sh
+bun test examples/activity-monitor
+cargo test --manifest-path examples/activity-monitor/native/system-monitor/Cargo.toml --locked
+```
+
+Build the standalone Linux application with:
+
+```sh
+bun run build --example=activity-monitor --target=linux-x64
+./dist/activity-monitor-linux-x64
+```
+
+The Linux x64 addon introduces no non-system dynamic dependency; its observed direct ELF dependencies are the system loader, libc, and libgcc. On the implementation host, the first optimized extension compile took 8.2 seconds, a verified warm-cache lookup took 2.2 milliseconds, and the subsequent selected-application build took 0.18 seconds. These measurements vary by machine.
+
+The current metric record is explicit about verification status:
+
+| Metric | Linux x64 | macOS arm64 |
+| --- | --- | --- |
+| Overall CPU, total/used memory, process count | Supplied and verified | Implemented through `sysinfo`; verification deferred |
+| 1/5/15-minute load average | Supplied and verified | Implemented through `sysinfo`; verification deferred |
+| Per-process CPU, memory, state, and parent PID | Supplied and verified; parent PID can be unavailable | Implemented through `sysinfo`; verification deferred |
+| Executable path and process timing | Supplied when the OS permits inspection; otherwise unavailable | Implemented as optional values; verification deferred |
+
+Optional native values become `null` in the shared application contract and the UI prints **Unavailable**. Zero remains a real measured value.
+
+The crate is structured for both supported operating systems, but the activity-monitor-specific macOS arm64 artifact, relocation, platform-difference, and timing checks are currently deferred. The existing dependency-free `native-probe` remains the cross-platform verification of Crumb's extension mechanism.
+
 ### Treat native code as trusted process code
 
 A Rust extension has the Bun process's full operating-system permissions. It can read and write files, use the network, crash the process, or terminate it. `bun run verify:readonly` scans TypeScript only and makes no claim about Rust, so review native code separately.

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
+  <title>Crumb - Activity monitor demo</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main id="app" aria-label="Crumb activity monitor">
+    <header class="toolbar">
+      <div><p class="eyebrow">Native Rust extension</p><h1>Activity monitor</h1></div>
+      <label class="auto-refresh"><input id="auto-refresh" type="checkbox"> Refresh every 5 seconds</label>
+      <button id="refresh" type="button">Refresh now</button>
+    </header>
+
+    <section class="summary" aria-label="System summary">
+      <article><span>CPU</span><strong id="summary-cpu">Unavailable</strong></article>
+      <article><span>Memory used</span><strong id="summary-used-memory">Unavailable</strong></article>
+      <article><span>Memory total</span><strong id="summary-total-memory">Unavailable</strong></article>
+      <article><span>Processes</span><strong id="summary-processes">Unavailable</strong></article>
+      <article><span>Load (1 / 5 / 15 min)</span><strong id="summary-load">Unavailable</strong></article>
+    </section>
+
+    <div class="workspace">
+      <section class="processes" aria-labelledby="process-heading">
+        <div class="section-heading"><h2 id="process-heading">Processes</h2><span id="sample-time"></span></div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th><button type="button" data-sort="identifier">PID</button></th>
+              <th><button type="button" data-sort="name">Name</button></th>
+              <th><button type="button" data-sort="cpuPercent">CPU</button></th>
+              <th><button type="button" data-sort="memoryBytes">Memory</button></th>
+              <th><button type="button" data-sort="state">State</button></th>
+            </tr></thead>
+            <tbody id="process-list"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside aria-labelledby="detail-heading">
+        <p class="eyebrow">Read-only details</p>
+        <h2 id="detail-heading">No process selected</h2>
+        <div id="process-details"><p>Select a process to inspect it. This example cannot act on processes.</p></div>
+      </aside>
+    </div>
+    <footer id="status" aria-live="polite">Loading system information…</footer>
+  </main>
+  <script type="module" src="./app.ts"></script>
+</body>
+</html>
