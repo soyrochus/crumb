@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
+  <title>Crumb - File explorer demo</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main id="app" aria-label="Crumb - File explorer demo">
+    <header class="toolbar">
+      <button id="back" aria-label="Back">←</button><button id="forward" aria-label="Forward">→</button><button id="parent" aria-label="Parent directory">↑</button>
+      <output id="path" aria-label="Current path">/</output>
+      <button id="hidden" aria-label="Show hidden files" aria-pressed="false">Hidden: Off</button>
+    </header>
+    <div class="panes">
+      <nav id="locations" aria-label="Locations"></nav>
+      <div class="splitter" role="separator" tabindex="0" aria-label="Resize locations" aria-orientation="vertical"></div>
+      <section class="directory" aria-label="Directory contents"><div id="entries" role="listbox" tabindex="0"></div></section>
+      <div class="splitter" role="separator" tabindex="0" aria-label="Resize preview" aria-orientation="vertical"></div>
+      <aside id="preview" aria-label="Preview"><p>Select an item to preview it.</p></aside>
+    </div>
+    <footer id="status" aria-live="polite">Starting…</footer>
+  </main>
+  <script type="module" src="./app.ts"></script>
+</body>
+</html>

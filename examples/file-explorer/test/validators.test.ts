@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { validators } from "../../src/app/shared/validators";
+import { validators } from "../src/shared/validators";
 
 describe("declared operation validation", () => {
   for (const invalid of [null, undefined, "", "relative", "a\0b", [], {}, 1]) {

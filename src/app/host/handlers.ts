@@ -1,11 +1,12 @@
 import { getPlatformInfo } from "../../kit/host/platform";
-import { getLocations, listDirectory } from "./filesystem";
-import { getPreview } from "./preview";
+import type { HostSummary } from "../shared/contracts";
 
-/** The four operations the file-explorer example implements. All are read-only. */
+/** Runs in the trusted Bun host. This is where your application does real work. */
 export const handlers = {
-  getPlatformInfo: () => getPlatformInfo(),
-  getLocations: () => getLocations(getPlatformInfo().platform),
-  listDirectory: ({ path, showHidden }: { path: string; showHidden: boolean }) => listDirectory(path, showHidden),
-  getPreview: ({ path }: { path: string }) => getPreview(path),
+  describeHost: (): HostSummary => ({
+    platform: getPlatformInfo().platform,
+    bunVersion: Bun.version,
+    startedAt: new Date().toISOString(),
+  }),
 };
+

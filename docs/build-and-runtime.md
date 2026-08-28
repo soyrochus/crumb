@@ -1,13 +1,14 @@
 # Build and runtime support
 
-This describes Crumb's build pipeline — the template's, not any one application's. The artifacts named below (`dist/crumb-linux-x64`, `dist/crumb-macos-arm64`) are the `file-explorer` example, which is the application the repository currently builds. An application you build on Crumb goes through the same two stages under its own name.
+This describes Crumb's build pipeline — the template's, not any one application's. Artifacts are named after the application being built: `dist/starter-<target>` by default, `dist/file-explorer-<target>` with `--example=file-explorer`, or any stem given by `--output=<name>`. Every application goes through the same two stages.
 
 ## Commands
 
-- `bun run dev` builds the in-memory UI artifact and launches the application named in `app.config.ts`.
+- `bun run dev` builds the in-memory UI artifact and launches the default application in a child process, watching sources and restarting on change. `--example=<name>` selects another application; `--no-watch` runs once.
+- Developer tools are enabled only under `bun run dev`. Release builds disable them and no configuration can override that.
 - `bun run build:native` downloads, verifies, patches, and compiles the pinned Linux native addon.
-- `bun run build --target=linux-x64` produces `dist/crumb-linux-x64` on Linux x64.
-- `bun run build --target=macos-arm64` produces `dist/crumb-macos-arm64` on macOS arm64.
+- `bun run build --target=linux-x64` produces `dist/starter-linux-x64`; `--example=file-explorer` produces `dist/file-explorer-linux-x64`. The artifact is named after the selected application unless `--output=<name>` overrides the stem.
+- `bun run build --target=macos-arm64` produces the macOS arm64 executable under the same naming rule.
 - `bun test` and `bun run typecheck` run the automated verification suite.
 
 Release artifacts must currently be built on their target operating system. The build deliberately fails an attempted cross-platform release rather than emitting an unverified native-addon combination.
@@ -27,7 +28,7 @@ Building the Linux addon requires Rust/Cargo, a C compiler and linker, `pkg-conf
 Inspect a release with:
 
 ```sh
-file dist/crumb-linux-x64
+file dist/file-explorer-linux-x64
 ldd .build/nativewindow-webview-v1.0.6/native-window.linux-x64-gnu.node
 ```
 
@@ -44,8 +45,8 @@ Build and inspect the release on an Apple Silicon Mac:
 ```sh
 bun install
 bun run build --target=macos-arm64
-file dist/crumb-macos-arm64
-otool -L dist/crumb-macos-arm64
+file dist/file-explorer-macos-arm64
+otool -L dist/file-explorer-macos-arm64
 ```
 
 The verified artifact is a 64-bit arm64 Mach-O executable of approximately 62 MiB. Its outer executable links only `/usr/lib` system libraries; the embedded addon links WebKit, AppKit, ApplicationServices, CoreGraphics, CoreVideo, CoreFoundation, CoreData, CoreText, CoreImage, CloudKit, QuartzCore, Foundation, ColorSync, CoreServices, and standard `/usr/lib` libraries. No adjacent application-owned `.dylib` or `.node` file is required.

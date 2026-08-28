@@ -1,6 +1,6 @@
 import getNativeBinding from "app:native";
 import UI_HTML from "app:ui";
-import type { ApplicationConfig } from "../shared/config";
+import { devtoolsEnabled, type ApplicationConfig } from "../shared/config";
 import { getPlatformInfo, StartupConfigurationError, startupErrorMessage } from "./platform";
 import { createRpcRouter, type RpcRequest } from "./rpc";
 
@@ -9,7 +9,16 @@ import { createRpcRouter, type RpcRequest } from "./rpc";
  * receives the configuration; it never imports an application module, so
  * `src/app/` can be replaced wholesale without touching this file.
  */
-export function startApplication(config: ApplicationConfig): void {
+export interface StartOptions {
+  /**
+   * Enables WebView developer tools. Set only by the development runner — it is
+   * deliberately absent from `ApplicationConfig`, so no application
+   * configuration can enable diagnostics in a release build.
+   */
+  devtools?: boolean;
+}
+
+export function startApplication(config: ApplicationConfig, options: StartOptions = {}): void {
   let closing = false;
   const { NativeWindow, loadHtmlOrigin } = getNativeBinding();
   const route = createRpcRouter(config.operations);
@@ -29,7 +38,7 @@ export function startApplication(config: ApplicationConfig): void {
       minWidth: config.window.minWidth,
       minHeight: config.window.minHeight,
       resizable: config.window.resizable,
-      devtools: false,
+      devtools: devtoolsEnabled(options),
       incognito: true,
       trustedOrigins: [loadHtmlOrigin()],
       allowedHosts: ["nativewindow.localhost"],

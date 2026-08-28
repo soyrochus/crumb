@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { DirectoryListing, Preview } from "../../src/app/shared/contracts";
-import { ExplorerState } from "../../src/app/ui/state";
+import type { DirectoryListing, Preview } from "../src/shared/contracts";
+import { ExplorerState } from "../src/ui/state";
 
 const listing = (path: string): DirectoryListing => ({ path, entries: [], truncated: false });
 const preview = (path: string): Preview => ({

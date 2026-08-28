@@ -6,7 +6,7 @@
     <img alt="Status: alpha" src="https://img.shields.io/badge/status-alpha-f59e0b">
     <img alt="Bun 1.4.0" src="https://img.shields.io/badge/Bun-1.4.0-000000?logo=bun&amp;logoColor=white">
     <img alt="TypeScript 7.0.2" src="https://img.shields.io/badge/TypeScript-7.0.2-3178c6?logo=typescript&amp;logoColor=white">
-    <img alt="36 tests passing" src="https://img.shields.io/badge/tests-36%20passing-22c55e">
+    <a href="https://github.com/soyrochus/crumb/actions/workflows/verify.yml"><img alt="Release verification" src="https://github.com/soyrochus/crumb/actions/workflows/verify.yml/badge.svg"></a>
     <img alt="Linux x64" src="https://img.shields.io/badge/Linux-x64-fcc624?logo=linux&amp;logoColor=black">
     <img alt="Linux uses Wayland only" src="https://img.shields.io/badge/Linux-Wayland%20only-7c3aed">
     <img alt="macOS arm64" src="https://img.shields.io/badge/macOS-arm64-999999?logo=apple&amp;logoColor=white">
@@ -17,7 +17,7 @@ Crumb is a template you clone. It gives you a native window, an embedded offline
 
 If you can build your app as a web page that needs no server, Crumb turns it into a desktop application — without shipping Chromium, without starting a local web server, and without asking anyone to install Bun or Node.js beside the finished binary.
 
-The three-pane file browser in the screenshots below is **not** Crumb. It is `file-explorer`, the example application that proves the template works. It is the first thing you delete.
+The three-pane file browser in the screenshots below is **not** Crumb. It is `file-explorer`, a worked example that proves the template works. It lives in `examples/` and stays out of your way — run it with `bun run dev --example=file-explorer`.
 
 Crumb is built on [Bun](https://bun.com/) and is, in passing, a practical exploration of Bun as an application toolchain: package management, direct TypeScript execution, browser bundling, automated testing, Node-API compatibility, and compilation into standalone executables.
 
@@ -36,7 +36,11 @@ Crumb is built on [Bun](https://bun.com/) and is, in passing, a practical explor
 
 ## The file-explorer example
 
-The example application shipped in this repository is a view-only three-pane file browser. It exists to prove the template end to end and to give you working code to read. **Delete it when you start your own app** — none of it is part of what Crumb promises.
+A view-only three-pane file browser, shipped in `examples/file-explorer/`. It exists to prove the template end to end and to give you working code to read. None of it is part of what Crumb promises, and none of it is in your way — it is a separate application, not the starting point.
+
+```sh
+bun run dev --example=file-explorer
+```
 
 - Three-pane layout for locations, directory contents, and previews
 - Home, root, common folders, and mounted-location discovery
@@ -70,14 +74,22 @@ That last point is the example's own choice, not a limit Crumb imposes. `file-ex
 - A supported native WebView stack
 - Apple Silicon with macOS 13 or newer, or Ubuntu 26.04 x64 with a native Wayland session
 
-Install dependencies and launch the `file-explorer` example:
+Install dependencies and run:
 
 ```sh
 bun install
 bun run dev
 ```
 
-That window is the example, not a starting point you have to keep. To build your own app, replace `src/app/` with your own page and handlers, then declare the operations your page may call in `app.config.ts`. Everything else — the window, the embedded document, the validated bridge, the build — stays as it is.
+A window opens showing the **starter** — a minimal application in `src/app/`: one page, one declared operation, and a button that calls the Bun host. It is about forty lines you can read in full before changing anything, and it is what you edit to build your own app.
+
+To see something substantial, run the worked example:
+
+```sh
+bun run dev --example=file-explorer
+```
+
+That is the three-pane file browser in the screenshots below. It lives in `examples/file-explorer/` and you never have to delete it — it is a separate application, not something in your way.
 
 ## Bun in this project
 
@@ -170,20 +182,28 @@ Crumb forces `GDK_BACKEND=wayland` internally. It will not fall back to X11 or X
 
 Release artifacts must currently be built on their target operating system.
 
+The artifact is named after the application being built — `bun run build` produces `dist/starter-<target>`, and `--example=file-explorer` produces `dist/file-explorer-<target>`. Pass `--output=<name>` to choose the stem yourself.
+
+```sh
+bun run build --target=macos-arm64                        # dist/starter-macos-arm64
+bun run build --example=file-explorer --target=macos-arm64 # dist/file-explorer-macos-arm64
+bun run build --example=file-explorer --output=crumb --target=macos-arm64
+```
+
 ### Linux x64
 
 ```sh
-bun run build --target=linux-x64
-./dist/crumb-linux-x64
+bun run build --example=file-explorer --target=linux-x64
+./dist/file-explorer-linux-x64
 ```
 
 ### macOS arm64
 
 ```sh
-bun run build --target=macos-arm64
-file dist/crumb-macos-arm64
-otool -L dist/crumb-macos-arm64
-./dist/crumb-macos-arm64
+bun run build --example=file-explorer --target=macos-arm64
+file dist/file-explorer-macos-arm64
+otool -L dist/file-explorer-macos-arm64
+./dist/file-explorer-macos-arm64
 ```
 
 The expected `file` result is a 64-bit arm64 Mach-O executable. `otool -L` must list only macOS system libraries; the embedded native addon uses the system WebKit, AppKit, and related Apple frameworks. `otool` is a release-inspection tool supplied by Apple Command Line Tools (`xcode-select --install`), but those tools are not required merely to build or run Crumb.
@@ -192,9 +212,9 @@ To verify that no application files are required beside the executable:
 
 ```sh
 CRUMB_CHECK_DIR="$(mktemp -d)"
-cp dist/crumb-macos-arm64 "$CRUMB_CHECK_DIR/"
+cp dist/file-explorer-macos-arm64 "$CRUMB_CHECK_DIR/"
 cd "$CRUMB_CHECK_DIR"
-./crumb-macos-arm64
+./file-explorer-macos-arm64
 ```
 
 The relocated executable has been verified from an otherwise empty directory without Bun, Node.js, npm, the repository, or network access in its runtime path. It is approximately 62 MiB because it embeds Bun, the host, the UI, and the native binding.
@@ -259,7 +279,7 @@ Native window and WebView
 
 The WebView can call only the operations declared in `app.config.ts` — nothing else is reachable, and every input is validated before a handler runs. An operation absent from that table has no route to a handler. There is no generic filesystem binding and no eval-style bridge. The embedded document also uses a restrictive Content Security Policy that blocks external connections, frames, objects, forms, and unintended scripts.
 
-The `file-explorer` example declares four:
+The `file-explorer` example declares four operations:
 
 - `getPlatformInfo`
 - `getLocations`
@@ -267,6 +287,10 @@ The `file-explorer` example declares four:
 - `getPreview`
 
 All four are read-only, and `bun run verify:readonly` statically checks `src/app/` for mutation, whole-file generic reads, and shell execution. That check belongs to the example. Your application declares its own operations in `app.config.ts` and is not bound by it.
+
+### Developer tools
+
+`bun run dev` enables the WebView's developer tools so you can inspect the page you are building. Release builds disable them, and no application configuration can turn them back on — the flag comes from the launch path, not from `app.config.ts`, so a released executable cannot ship an inspectable WebView.
 
 ### Native Wayland patch
 
@@ -278,10 +302,14 @@ The patch is stored at [`native/nativewindow-webview-v1.0.6-wayland.patch`](./na
 
 | Command | Purpose |
 | --- | --- |
-| `bun run dev` | Build the embedded UI and launch the configured application |
+| `bun run dev` | Build and launch the default application, watching for changes |
+| `bun run dev --example=file-explorer` | Run a named application instead |
+| `bun run dev --no-watch` | Run once without watching |
 | `bun run build:native` | Build the patched Linux native addon |
 | `bun run build:ui` | Build `dist/ui.html` |
 | `bun run build --target=linux-x64` | Build the Linux standalone executable |
+| `bun run build --example=<name> --target=<target>` | Build a named application; the artifact is named after it |
+| `bun run build --output=<name> …` | Override the artifact's filename stem |
 | `bun run build --target=macos-arm64` | Build the macOS standalone executable |
 | `bun test` | Run the automated test suite |
 | `bun run typecheck` | Run strict TypeScript checks |
@@ -293,13 +321,15 @@ The patch is stored at [`native/nativewindow-webview-v1.0.6-wayland.patch`](./na
 ```text
 src/kit/       The template: window bootstrap, RPC router and browser bridge,
                validation primitives, platform detection, transport types
-src/app/       The file-explorer example. This is the directory you replace.
-app.config.ts  Window, document policy, build targets, declared operations
-main.ts        Entry point: hands the configuration to the kit
-scripts/       Development, native, UI, and release build scripts
+src/app/       The starter — a minimal application. This is what you edit.
+examples/
+  file-explorer/  The worked example, with its own config, source, and tests
+app.config.ts  Registry of available applications and which one is default
+main.ts        Release entry point: hands an application to the kit
+scripts/       Development supervisor, runner, native, UI, and build scripts
 native/        Minimal pinned native binding patch
-test/kit/      Template tests: platform, validation, RPC surface
-test/app/      Example tests: filesystem, preview, state, boundary
+test/kit/      Template tests: platform, validation, RPC surface, selection,
+               and the release developer-tools invariant
 docs/          Build, runtime, and feasibility notes
 openspec/      Change proposals, design, requirements, and task tracking
 images/        Crumb artwork
@@ -308,6 +338,8 @@ images/        Crumb artwork
 Nothing under `src/kit/` imports from `src/app/`, and the kit names no operation. Moving `src/app/` aside leaves the kit typechecking cleanly — that is a test, not an aspiration.
 
 ## Verification
+
+These local commands are the per-change check. Automated verification runs only when a version tag is published — a run compiles the Linux native addon from source and builds every application on both platforms, which is too costly to spend on every push.
 
 Run the complete local checks:
 
@@ -366,8 +398,8 @@ The macOS artifact requires Apple Silicon. Confirm that `uname -m` prints `arm64
 Preserve or restore the executable bit, then run the binary without `sudo`:
 
 ```sh
-chmod +x dist/crumb-macos-arm64
-./dist/crumb-macos-arm64
+chmod +x dist/file-explorer-macos-arm64
+./dist/file-explorer-macos-arm64
 ```
 
 If the example opens but a protected folder is unavailable, review the macOS privacy guidance in [macOS setup](#macos-setup). Filesystem permission errors are recoverable and the example does not change permissions.
@@ -389,7 +421,7 @@ It must be an arm64 Mach-O library. Do not reuse `node_modules` copied from Linu
 ### Verify Linux native dependencies
 
 ```sh
-file dist/crumb-linux-x64
+file dist/file-explorer-linux-x64
 ldd .build/nativewindow-webview-v1.0.6/native-window.linux-x64-gnu.node
 ```
 

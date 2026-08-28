@@ -56,13 +56,17 @@ The template SHALL enable WebView developer tools when running under the develop
 - **WHEN** a release executable is produced
 - **THEN** developer tools are disabled in it, and no application configuration value can enable them
 
-### Requirement: Automated verification of supported targets
-The repository SHALL run its automated verification on every proposed change, on each supported target platform, covering the test suite, strict type checking, the example application's capability boundary, and a successful build. A status claim published in project documentation SHALL correspond to that run.
+### Requirement: Automated release verification
+The repository SHALL verify every released version automatically on each supported target platform, covering the test suite, strict type checking, the example application's capability boundary, and a successful build of every application it ships. Verification SHALL be triggered by publishing a version tag rather than by each proposed change, because a run compiles platform-native components from source and is too costly to spend on every push. The documented local commands SHALL remain the per-change check. A status claim published in project documentation SHALL correspond to the most recent verification run.
 
-#### Scenario: Propose a change
-- **WHEN** a change is proposed against the repository
-- **THEN** the test suite, strict type checking, the capability-boundary check, and a build run automatically on macOS arm64 and Linux x64, and the result is reported against the change
+#### Scenario: Publish a release
+- **WHEN** a version tag is published
+- **THEN** the test suite, strict type checking, the capability-boundary check, and a build of every shipped application run automatically on macOS arm64 and Linux x64
 
-#### Scenario: A change breaks a supported target
-- **WHEN** a proposed change passes on one supported target and fails on another
-- **THEN** the failure is reported and the change is not presented as verified
+#### Scenario: Push a change without releasing
+- **WHEN** a change is pushed or proposed but no version is tagged
+- **THEN** no automated verification is triggered, and the repository documents the local commands that serve as the per-change check
+
+#### Scenario: A release fails on one supported target
+- **WHEN** a released version passes on one supported target and fails on another
+- **THEN** the failure is reported and the release is not presented as verified

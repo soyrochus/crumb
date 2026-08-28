@@ -11,7 +11,7 @@ Crumb now says it exists so you can ship a server-less web app as a desktop app.
 - **`app.config.ts` gains application selection** — the build and dev loop target the application named in configuration or on the command line, so an example is a first-class build target rather than a directory you copy over `src/app/`.
 - **Watch mode** — `bun run dev` rebuilds the UI artifact and restarts the host when a source file changes, with a clear line on each rebuild. `--no-watch` keeps the current one-shot behavior.
 - **DevTools in development, never in release** — the kit enables them for `bun run dev` and forces them off for `bun run build`, regardless of configuration. A release artifact must not ship an inspectable WebView.
-- **CI** — a workflow running `bun test`, `bun run typecheck`, `bun run verify:readonly`, and a build on macOS arm64 and Linux x64, so the badge means something.
+- **Release verification** — a workflow running `bun test`, `bun run typecheck`, `bun run verify:readonly`, and a build of both applications on macOS arm64 and Linux x64, triggered by a `v<major>.<minor>.<patch>` tag. It is deliberately *not* run per push: each run compiles the Linux native addon from source, which is too expensive to spend on every commit. Local commands remain the per-change check.
 - **`verify:readonly` follows the explorer** to `examples/file-explorer/`, and the minimal app in `src/app/` is deliberately *not* subject to it — demonstrating that the read-only rule belongs to the example, which is the point `retarget-crumb-as-template` made in prose.
 - Documentation updated for the new first-run path.
 
@@ -31,6 +31,6 @@ None. Moving the explorer changes no requirement: `filesystem-browsing`, `file-p
 
 - **Code**: new `src/app/` (minimal); `examples/file-explorer/` receives today's `src/app/`; `scripts/dev.ts` gains a watch loop and an `--example` flag; `scripts/build.ts` and `scripts/ui-artifact.ts` resolve entries from the selected application; `src/kit/host/main.ts` and `src/kit/shared/config.ts` gain a development flag governing DevTools.
 - **Tests**: `test/app/*` follows the explorer to `examples/file-explorer/test/`; new kit tests cover application selection and the release DevTools invariant. The suite must not lose an assertion — currently **50 pass, 108 expectations**.
-- **CI**: `.github/workflows/` created. Linux CI must install GTK/WebKitGTK and build the native addon from source, which is slow — an accepted cost until the addon change lands, and the reason that change matters.
+- **CI**: `.github/workflows/verify.yml` created, tag-triggered. The Linux job installs GTK/WebKitGTK and builds the native addon from source — the cost that motivated restricting runs to releases, and the reason the prebuilt-addon change matters.
 - **Docs**: `README.md` Quick start, Project structure, and Development commands; `docs/build-and-runtime.md`.
 - **Risk**: `bun run dev` currently imports the host directly into its own process. A watch loop that restarts requires running the host as a child process instead, which is a real change to how development works and the most likely source of defects in this change.

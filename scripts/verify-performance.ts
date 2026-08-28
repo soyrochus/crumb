@@ -3,13 +3,19 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { NativeWindow as NativeWindowInstance, WindowOptions } from "@nativewindow/webview";
-import { listDirectory } from "../src/app/host/filesystem";
-import { getPreview } from "../src/app/host/preview";
+import { listDirectory } from "../examples/file-explorer/src/host/filesystem";
+import { getPreview } from "../examples/file-explorer/src/host/preview";
 import { createRpcRouter, type RpcRequest } from "../src/kit/host/rpc";
 import { operation, type Operations } from "../src/kit/shared/transport";
-import { validators } from "../src/app/shared/validators";
-import type { Preview } from "../src/app/shared/contracts";
-import { ExplorerState } from "../src/app/ui/state";
+import { validators } from "../examples/file-explorer/src/shared/validators";
+import { registry } from "../app.config";
+import { resolveApplication } from "../src/kit/shared/config";
+
+// This check exercises the file-explorer example specifically: its assertions
+// target that application's 5,000-row listing and preview panes, not whichever
+// application happens to be the registry default.
+import type { Preview } from "../examples/file-explorer/src/shared/contracts";
+import { ExplorerState } from "../examples/file-explorer/src/ui/state";
 import { buildNativeAddon } from "./build-native";
 import { buildUiHtml } from "./ui-artifact";
 
@@ -178,7 +184,7 @@ try {
   const retainedRss = Math.max(0, process.memoryUsage().rss - baselineRss);
   requireWithin("Retained preview memory", retainedRss, limits.retainedRssBytes, " bytes");
 
-  const builtUi = await time(() => buildUiHtml());
+  const builtUi = await time(() => buildUiHtml(resolveApplication(registry, "file-explorer")));
   const ui = await verifyNativeUi(builtUi.value, fixtureRoot);
   requireWithin("Native UI startup", ui.startupMs, limits.uiStartupMs, "ms");
   requireWithin("5,000-row DOM commit", ui.fiveThousandRowsMs, limits.fiveThousandRowsMs, "ms");

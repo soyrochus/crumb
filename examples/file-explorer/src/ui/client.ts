@@ -1,4 +1,4 @@
-import { invoke } from "../../kit/ui/bridge";
+import { invoke } from "../../../../src/kit/ui/bridge";
 import type { DirectoryListing, ExplorerOperations, Location, PlatformInfo, Preview } from "../shared/contracts";
 
 function call<K extends keyof ExplorerOperations & string>(
