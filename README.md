@@ -101,7 +101,12 @@ bun run dev --example=crumbbrot
 
 Crumbbrot was created as the end-to-end exercise for Crumb's three shipped agent skills: [`crumb-new-application`](./skills/crumb-new-application/), [`crumb-add-operation`](./skills/crumb-add-operation/), and [`crumb-add-native-extension`](./skills/crumb-add-native-extension/). The assistant followed [`specs/crumbot-skill-demo.md`](./specs/crumbot-skill-demo.md) as its application guide, then corrected the skills where the exercise exposed incomplete guidance. It is therefore both a native-extension example and a concrete demonstration that the skills can carry an application from specification through registration, validated operation, Rust crate, tests, and standalone build.
 
-The example supports cursor-centered zoom, drag-to-pan navigation, bounded iteration controls, configurable Julia parameters, coalesced render requests, obsolete-result rejection, and shutdown cancellation. Its Linux x64 addon and standalone executable have been built and exercised; the crate includes the required macOS arm64 linker configuration, but that target has not yet been verified for this example.
+The example supports cursor-centered zoom, drag-to-pan navigation, bounded iteration controls, configurable Julia parameters, coalesced render requests, obsolete-result rejection, and shutdown cancellation. Its addon and standalone executable have been built and exercised on both Linux x64 and macOS arm64.
+
+<figure>
+  <img src="images/crumbbrot-macos.png" alt="The Crumbbrot example running on macOS">
+  <figcaption>The <code>crumbbrot</code> example on macOS</figcaption>
+</figure>
 
 <figure>
   <img src="images/crumbbrot-linux.png" alt="The Crumbbrot example running on Linux">

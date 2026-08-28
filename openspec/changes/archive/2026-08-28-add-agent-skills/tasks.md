@@ -54,7 +54,7 @@
 
 ## 8. Verification
 
-- [ ] 8.1 Run the installer, confirm the three target directories contain the Crumb skills alongside the untouched OpenSpec skills, and commit the generated copies
+- [x] 8.1 Run the installer, confirm the three target directories contain the Crumb skills alongside the untouched OpenSpec skills, and commit the generated copies
 - [x] 8.2 Confirm `bun run install:skills --check` passes on the committed tree, and fails as specified after editing one source file
 - [x] 8.3 Run `bun test` and `bun run typecheck`
 - [x] 8.4 Confirm no runtime impact: build an application before and after installation and confirm the executable is unaffected and contains no skill content
