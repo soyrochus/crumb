@@ -251,16 +251,27 @@ Release artifacts must currently be built on their target operating system.
 The artifact is named after the application being built — `bun run build` produces `dist/starter-<target>`, and `--example=file-explorer` produces `dist/file-explorer-<target>`. Pass `--output=<name>` to choose the stem yourself.
 
 ```sh
-bun run build --target=macos-arm64                        # dist/starter-macos-arm64
-bun run build --example=file-explorer --target=macos-arm64 # dist/file-explorer-macos-arm64
+bun run build --target=macos-arm64                           # dist/starter-macos-arm64
+bun run build --example=file-explorer --target=macos-arm64    # dist/file-explorer-macos-arm64
+bun run build --example=activity-monitor --target=macos-arm64 # dist/activity-monitor-macos-arm64
 bun run build --example=file-explorer --output=crumb --target=macos-arm64
 ```
+
+Every registered application builds the same way; substitute its registry key.
+`activity-monitor` declares a Rust extension, so its build additionally
+validates the declaration, compiles the crate if it is missing or stale, and
+reports any non-system dynamic dependency the crate introduced. That is the only
+difference in the command you run.
 
 ### Linux x64
 
 ```sh
 bun run build --example=file-explorer --target=linux-x64
 ./dist/file-explorer-linux-x64
+
+bun run build --example=activity-monitor --target=linux-x64
+ldd dist/activity-monitor-linux-x64
+./dist/activity-monitor-linux-x64
 ```
 
 ### macOS arm64
@@ -270,20 +281,28 @@ bun run build --example=file-explorer --target=macos-arm64
 file dist/file-explorer-macos-arm64
 otool -L dist/file-explorer-macos-arm64
 ./dist/file-explorer-macos-arm64
+
+bun run build --example=activity-monitor --target=macos-arm64
+file dist/activity-monitor-macos-arm64
+otool -L dist/activity-monitor-macos-arm64
+./dist/activity-monitor-macos-arm64
 ```
 
-The expected `file` result is a 64-bit arm64 Mach-O executable. `otool -L` must list only macOS system libraries; the embedded native addon uses the system WebKit, AppKit, and related Apple frameworks. `otool` is a release-inspection tool supplied by Apple Command Line Tools (`xcode-select --install`), but those tools are not required merely to build or run Crumb.
+The expected `file` result is a 64-bit arm64 Mach-O executable. `otool -L` must list only macOS system libraries; the embedded native addon uses the system WebKit, AppKit, and related Apple frameworks. This is the same for both applications: on the verification host, `file-explorer` and `activity-monitor` reported identical dependency lists — `libicucore`, `libresolv`, `libc++`, and `libSystem` — so the `system-monitor` crate added no dynamic dependency of its own, matching the `no non-system dynamic dependencies` line the build reports. `otool` is a release-inspection tool supplied by Apple Command Line Tools (`xcode-select --install`), but those tools are not required merely to build or run Crumb.
 
 To verify that no application files are required beside the executable:
 
 ```sh
 CRUMB_CHECK_DIR="$(mktemp -d)"
-cp dist/file-explorer-macos-arm64 "$CRUMB_CHECK_DIR/"
+cp dist/file-explorer-macos-arm64 dist/activity-monitor-macos-arm64 "$CRUMB_CHECK_DIR/"
 cd "$CRUMB_CHECK_DIR"
 ./file-explorer-macos-arm64
+./activity-monitor-macos-arm64
 ```
 
-The relocated executable has been verified from an otherwise empty directory without Bun, Node.js, npm, the repository, or network access in its runtime path. It is approximately 62 MiB because it embeds Bun, the host, the UI, and the native binding.
+Both relocated executables have been verified from an otherwise empty directory without Bun, Node.js, npm, the repository, or network access in its runtime path. `file-explorer` is approximately 62 MiB and `activity-monitor` approximately 63 MiB, because each embeds Bun, the host, the UI, the native binding, and — for `activity-monitor` — the declared Rust extension.
+
+For an application that declares an extension, exercise an operation that actually calls it: `activity-monitor` must display a real system snapshot and process list. Opening the window proves the executable relocated; it does not prove the embedded addon loaded.
 
 The raw executable is linker-signed ad hoc, not signed with an Apple Developer ID, and not notarized. A locally built executable runs normally. If a downloaded copy is quarantined, the safest option is to build it from source; otherwise, verify its provenance and use **System Settings → Privacy & Security → Open Anyway** if macOS offers that control. Never run it with `sudo`.
 
