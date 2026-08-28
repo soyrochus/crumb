@@ -1,7 +1,7 @@
 # three-pane-interface Specification
 
 ## Purpose
-TBD - created by archiving change build-crumb-file-explorer. Update Purpose after archive.
+A `file-explorer` example requirement. The example's three-pane layout, navigation toolbar, keyboard model, loading and error states, and adaptive appearance — the user interface that an application built on Crumb for a different purpose replaces entirely.
 
 ## Requirements
 
@@ -79,10 +79,3 @@ Interactive controls SHALL use native semantic elements where possible, director
 #### Scenario: Operate without a pointer
 - **WHEN** a keyboard user moves through toolbar, sidebar, splitters, directory rows, and preview content
 - **THEN** focus order is usable, the focused control is visible, and each control has an accessible name and state
-
-### Requirement: Restrictive document policy
-The production UI SHALL apply a Content Security Policy that blocks remote connections, frames, object embedding, forms, unintended navigation, and non-application scripts while permitting only resources required by the embedded UI and bounded image previews.
-
-#### Scenario: Local content attempts network access
-- **WHEN** malicious displayed content contains or resembles a remote resource URL
-- **THEN** it remains inert text and the document policy prevents a connection from being established

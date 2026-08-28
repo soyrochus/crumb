@@ -6,7 +6,7 @@ Tested on 27 August 2026 with Bun 1.4.0 and `@nativewindow/webview` 1.0.6 on mac
 
 Crumb uses `@nativewindow/webview` with a small host adapter around its string IPC channel. Linux builds apply one pinned source patch that attaches Wry to Tao's default GTK box. Requests and responses are JSON messages with request identifiers and runtime validation. Host handlers may complete asynchronously because the binding pumps native events without blocking Bun's task queue.
 
-Linux support is native Wayland only. Crumb forces `GDK_BACKEND=wayland`, does not connect to an X server, and cannot fall back to X11/XWayland. Ubuntu's stock GTK/WebKitGTK binaries retain transitive linkage to `libX11` compatibility libraries even when their Wayland backend is active; those dormant system-library links are not an application backend.
+Linux support is native Wayland only. The Crumb host forces `GDK_BACKEND=wayland`, does not connect to an X server, and cannot fall back to X11/XWayland. Ubuntu's stock GTK/WebKitGTK binaries retain transitive linkage to `libX11` compatibility libraries even when their Wayland backend is active; those dormant system-library links are not an application backend.
 
 ## Results
 
@@ -25,7 +25,7 @@ Linux support is native Wayland only. Crumb forces `GDK_BACKEND=wayland`, does n
 | macOS arm64 dependencies | Pass; `otool -L` reports only Apple `/usr/lib` dependencies for the host, while the embedded addon uses WKWebView and other Apple system frameworks with no adjacent application-owned library |
 | macOS arm64 runtime/clean-machine verification | Pass on macOS 26.5.2; the relocated executable opens, browses and previews files, and closes without Bun, Node.js, npm, source, adjacent assets, or network access in its runtime path |
 | macOS/Linux manual application acceptance | Pass; browse and inspect, resizing, keyboard navigation, light/dark appearance, removed-item/location recovery, permission errors, and clean shutdown were exercised on both supported targets |
-| Automated suite | Pass on both supported targets: 36 tests, strict typecheck, and the read-only boundary check; fixtures use isolated operating-system temporary directories |
+| Automated suite | Pass on both supported targets: 36 tests, strict typecheck, and the `file-explorer` example's read-only boundary check; fixtures use isolated operating-system temporary directories |
 | Performance verification | Pass on macOS: 138-ms UI startup, 5-ms 5,000-row DOM commit, 24.5-ms 250-entry listing, 1.6-ms text preview, 2.4-ms image preview, and 0.2-MiB retained RSS after payload release |
 
 The published Linux 1.0.6 addon emitted a GTK warning about adding a WebKitWebView to a GtkApplicationWindow that already contains a GtkBox, leaving a gray window. Upstream calls `build_gtk(window.gtk_window())`; Tao creates a default `GtkBox`, so GTK rejects the WebView as a second direct child. Crumb pins upstream commit `acfbe3ce4be2b70dc664bdd6c5feb53c52f9ce3e`, verifies archive SHA-256 `ddc10437e3cc7fcc2b18c0905f396e82d7a1cedccc88a05b3b86976cf4b77734`, and applies the minimal patch in `native/nativewindow-webview-v1.0.6-wayland.patch` to use `window.default_vbox()`. Native Wayland development and relocated production launches then render without the GTK child warning.
@@ -34,7 +34,7 @@ The published Linux 1.0.6 addon emitted a GTK warning about adding a WebKitWebVi
 
 The package's default JavaScript loader computes the platform package name dynamically. Bun cannot discover that dynamic require while compiling a standalone executable, so an otherwise valid binary fails after relocation because the `.node` addon is absent.
 
-Crumb's platform adapter must directly require the target-specific addon with a literal module path. Bun then embeds the Node-API addon in the executable. This pattern was verified by copying each target executable alone to an empty temporary directory and completing the native runtime journey there.
+The template's platform adapter must directly require the target-specific addon with a literal module path. Bun then embeds the Node-API addon in the executable. This pattern was verified by copying each target executable alone to an empty temporary directory and completing the native runtime journey there.
 
 Release builds remain native to their target operating system until cross-compilation of the corresponding addon is independently proven.
 

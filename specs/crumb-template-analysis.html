@@ -485,21 +485,27 @@
 
   <section>
     <p class="eyebrow">Scoping</p>
-    <h2>Read-only belongs to the example, not to Crumb</h2>
+    <h2>Three requirements are filed under the wrong owner — and the leak runs both ways</h2>
 
-    <p>The file explorer is view-only because that simplified its implementation, and it should stay exactly that way. It is a property of <span class="mono">file-explorer</span>, not a property of Crumb — a template for desktop apps cannot promise that the apps built with it never write files.</p>
+    <p>The file explorer is view-only because that simplified its implementation, and it should stay exactly that way. It is a property of <span class="mono">file-explorer</span>, not a property of Crumb — a template for desktop apps cannot promise that the apps built with it never write files. The specs mostly agree already: <span class="mono">filesystem-browsing</span> files “Read-only filesystem implementation” as its own requirement, which is the right home for it.</p>
 
-    <p>The specs mostly agree already: <span class="mono">filesystem-browsing</span> files “Read-only filesystem implementation” as its own requirement, which is the right home for it. Three places attribute it to Crumb instead, and the split has to correct them:</p>
+    <p>But writing the change proposal turned up two more mis-filings, and the second runs in the opposite direction — an example capability holding a promise every Crumb app needs. Together they are the substance of the split.</p>
 
+    <h3>Read-only is claimed by Crumb, but belongs to the example</h3>
     <ul class="dashed">
-      <li><span class="mono">openspec/specs/desktop-shell/spec.md</span> — the requirement “Narrow <em>read-only</em> RPC surface” sits in a kit-level spec. Drop the read-only half; what belongs at kit level is that the UI can reach the host only through enumerated, validated methods.</li>
+      <li><span class="mono">openspec/specs/desktop-shell/spec.md</span> — “Narrow <em>read-only</em> RPC surface” sits in a template-level spec and enumerates the explorer's four methods. What belongs at template level is that the UI reaches the host only through declared, validated methods; whether those methods write is the app's business.</li>
       <li><span class="mono">README.md</span> — “Crumb's core constraints: view-only filesystem access, …”. View-only is the example's constraint.</li>
-      <li><span class="mono">scripts/verify-readonly.ts</span> globs <span class="mono">src/{host,shared}/**</span> repo-wide and <span class="mono">package.json</span> exposes it as a top-level script. Scope the glob to the example. Otherwise every app built on Crumb inherits a verification step that fails the moment it writes a file.</li>
+      <li><span class="mono">scripts/verify-readonly.ts</span> globs <span class="mono">src/{host,shared}/**</span> repo-wide and <span class="mono">package.json</span> exposes it as a top-level script. Scope the glob to the example, or every app built on Crumb inherits a check that fails the moment it writes a file.</li>
     </ul>
 
-    <p>Nothing else changes. The check keeps running, the explorer stays view-only, and Crumb stops claiming a guarantee that isn't its to make.</p>
-  </section>
+    <h3>The Content Security Policy is held by the example, but belongs to Crumb</h3>
+    <p><span class="mono">three-pane-interface</span> — otherwise entirely example UI: panes, separators, keyboard model, appearance — owns the requirement “Restrictive document policy.” Nothing in it describes a pane. It is the CSP that blocks remote connections, frames, object embedding, and forms in <em>any</em> embedded document, and every app built on Crumb needs it.</p>
+    <p>Left where it is, an app that deletes the example deletes its own document policy. It moves to <span class="mono">desktop-shell</span> as a template default an app may widen only by explicit declaration.</p>
 
+    <h3>The distribution spec names Crumb and the explorer's journey</h3>
+    <p><span class="mono">standalone-distribution</span> is almost entirely template — two-stage build, target matrix, single-file executable, artifact inspection — but two requirements leak. “Permitted operating-system dependencies” says <em>Crumb</em> forces the Wayland GDK backend, when it is the built application that does. And “Clean-machine acceptance” hardcodes an explorer-shaped journey: navigate directories, preview text, preview an image, handle an unsupported file. That is the example's acceptance test wearing the template's clothes; the template's version is that an app completes <em>its own</em> declared interactions.</p>
+
+    <p>None of this weakens a guarantee. The explorer stays view-only, the CSP stays exactly as strict, and the clean-machine journey still runs — the requirements simply move to the capability that owns them, so the extraction has a boundary to be checked against.</p>
   <section>
     <p class="eyebrow">Structure</p>
     <h2>Three layers, split by directory instead of by paragraph</h2>
@@ -586,7 +592,7 @@
     <ol class="seq">
       <li>
         <span class="step"></span><h3>Retarget the purpose and split the spec set</h3>
-        <p>Documentation only, no code. States plainly that Crumb is the template for server-less web apps as desktop apps, moves the explorer requirements under an example heading, and re-files the read-only constraint under the example before a single file moves.</p>
+        <p>Documentation only, no code. States plainly that Crumb is the template for server-less web apps as desktop apps, and re-files the three mis-owned requirements before a single file moves. Proposed as <span class="mono">retarget-crumb-as-template</span>: one new <span class="mono">template-identity</span> capability, four spec deltas, and the five <span class="mono">TBD</span> Purpose placeholders finally filled. Verification is blunt — zero files changed under <span class="mono">src/</span>, <span class="mono">scripts/</span>, or <span class="mono">test/</span>, and all four existing commands pass unchanged.</p>
       </li>
       <li>
         <span class="step"></span><h3>Extract the kit</h3>

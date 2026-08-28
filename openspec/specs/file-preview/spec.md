@@ -1,7 +1,7 @@
 # file-preview Specification
 
 ## Purpose
-TBD - created by archiving change build-crumb-file-explorer. Update Purpose after archive.
+A `file-explorer` example requirement. Bounded, inert previews of directories, text, and images, in which file content is treated as untrusted data and is never interpreted, executed, or read in full.
 
 ## Requirements
 

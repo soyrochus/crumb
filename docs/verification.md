@@ -1,6 +1,6 @@
 # Release verification record
 
-Verified on 27 August 2026.
+Verified on 27 August 2026. The artifacts under test are the `file-explorer` example, which is the application this repository currently builds; the results below record the template's build and runtime guarantees as exercised through it. Measurements and outcomes are unchanged from the original record.
 
 ## Support matrix
 

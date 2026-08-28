@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./images/crumb-logo-smaller.png" alt="Crumb logo" width="220">
 
-  <p>A small, view-only desktop file explorer built with Bun, TypeScript, and native operating-system WebViews.</p>
+  <p>The template, toolchain, and documentation for shipping a server-less web app as a desktop app.<br>Bun, TypeScript, and native operating-system WebViews. One window, one executable, no Chromium.</p>
   <p>
     <img alt="Status: alpha" src="https://img.shields.io/badge/status-alpha-f59e0b">
     <img alt="Bun 1.4.0" src="https://img.shields.io/badge/Bun-1.4.0-000000?logo=bun&amp;logoColor=white">
@@ -13,14 +13,30 @@
   </p>
 </div>
 
-Crumb provides a lightweight three-pane interface for browsing directories and inspecting files. It uses the operating system's WebView instead of bundling Chromium, exposes a narrow read-only host API, and can be compiled into one executable per target platform.
+Crumb is a template you clone. It gives you a native window, an embedded offline document, a narrow validated bridge between your page and a Bun host, and a build that compiles all of it into one self-contained executable per platform.
 
-But the intention of Crumb is not the file manager. It is intenteded to be a practical exploration of [Bun](https://bun.com/): its capabilities as an application toolchain. It uses Bun for package management, direct TypeScript execution, browser bundling, automated testing, Node-API compatibility, and compilation into standalone executables. Combined with native operating-system WebViews, it demonstrates how to create a lightweight desktop application without shipping Chromium, starting a local web server, or requiring users to install Bun or Node.js alongside the finished executable.
+If you can build your app as a web page that needs no server, Crumb turns it into a desktop application — without shipping Chromium, without starting a local web server, and without asking anyone to install Bun or Node.js beside the finished binary.
+
+The three-pane file browser in the screenshots below is **not** Crumb. It is `file-explorer`, the example application that proves the template works. It is the first thing you delete.
+
+Crumb is built on [Bun](https://bun.com/) and is, in passing, a practical exploration of Bun as an application toolchain: package management, direct TypeScript execution, browser bundling, automated testing, Node-API compatibility, and compilation into standalone executables.
 
 > [!IMPORTANT]
-> Linux x64 on native Wayland and macOS arm64 are verified. X11 and XWayland are not supported. Crumb is currently distributed as an unsigned standalone executable rather than an installer or macOS `.app` bundle.
+> Linux x64 on native Wayland and macOS arm64 are verified. X11 and XWayland are not supported. The executables Crumb produces are currently unsigned and are not packaged as installers or macOS `.app` bundles.
 
-## Features
+## What Crumb gives you
+
+- One resizable native window using the operating system's own WebView — no bundled Chromium
+- Your HTML, CSS, and JavaScript embedded in the executable, loaded without a local server, a network request, or a lookup in the source tree
+- A narrow bridge between page and host: only the operations your app declares are reachable, each validated at runtime and each returning a serializable result or a normalized error
+- A restrictive Content Security Policy by default, blocking remote connections, frames, object embedding, forms, and unintended navigation
+- A two-stage build that bundles the UI into a single artifact and compiles it, your host code, and the Bun runtime into one self-contained executable per target
+- An executable that runs from an empty directory with no Bun, Node.js, npm, source tree, or adjacent application files
+- No telemetry, settings database, or persistent application state of any kind
+
+## The file-explorer example
+
+The example application shipped in this repository is a view-only three-pane file browser. It exists to prove the template end to end and to give you working code to read. **Delete it when you start your own app** — none of it is part of what Crumb promises.
 
 - Three-pane layout for locations, directory contents, and previews
 - Home, root, common folders, and mounted-location discovery
@@ -33,16 +49,17 @@ But the intention of Crumb is not the file manager. It is intenteded to be a pra
 - Keyboard navigation and accessible pane separators
 - Recoverable handling of missing files, removed volumes, and permission errors
 - No file creation, editing, deletion, renaming, moving, or shell execution
-- No local server, network service, telemetry, settings database, or persistent history
+
+That last point is the example's own choice, not a limit Crumb imposes. `file-explorer` restricts itself to inspection and bounded reads because that keeps a file browser simple and auditable, and `bun run verify:readonly` enforces it. An app you build on Crumb may read and write freely.
 
 <figure>
-  <img src="images/screenshot-macos.png" alt="Crumb running on macOS">
-  <figcaption>Crumb on macOS</figcaption>
+  <img src="images/screenshot-macos.png" alt="The file-explorer example running on macOS">
+  <figcaption>The <code>file-explorer</code> example on macOS</figcaption>
 </figure>
 
 <figure>
-  <img src="images/screenshot-linux.png" alt="Crumb running on Linux">
-  <figcaption>Crumb on Linux</figcaption>
+  <img src="images/screenshot-linux.png" alt="The file-explorer example running on Linux">
+  <figcaption>The <code>file-explorer</code> example on Linux</figcaption>
 </figure>
 
 ## Quick start
@@ -53,24 +70,26 @@ But the intention of Crumb is not the file manager. It is intenteded to be a pra
 - A supported native WebView stack
 - Apple Silicon with macOS 13 or newer, or Ubuntu 26.04 x64 with a native Wayland session
 
-Install dependencies and launch Crumb:
+Install dependencies and launch the `file-explorer` example:
 
 ```sh
 bun install
 bun run dev
 ```
 
+That window is the example, not a starting point you have to keep. To build your own app, replace the browser UI in `src/ui/` and the host handlers in `src/host/`, and declare the operations your page needs in `src/host/main.ts` and `src/shared/contracts.ts`. Everything else — the window, the embedded document, the validated bridge, the build — stays as it is.
+
 ## Bun in this project
 
-[Bun](https://bun.com/) is more than Crumb's JavaScript runtime. This project is partly a practical demonstration of Bun's integrated toolchain:
+[Bun](https://bun.com/) is more than the runtime your app happens to sit on — it is the whole toolchain Crumb is built from. Every stage below is Bun doing a job that would otherwise need a separate tool:
 
-| Bun feature | How Crumb uses it |
+| Bun feature | How the toolchain uses it |
 | --- | --- |
 | Package manager | `bun install` installs the pinned JavaScript dependencies from `bun.lock` |
 | TypeScript runtime | Development and build scripts run directly from `.ts` files |
 | Bundler | `Bun.build()` bundles the browser UI into one embedded HTML artifact |
-| Executable compiler | `Bun.build({ compile: ... })` produces a standalone host executable containing Bun, the UI, and application code |
-| Test runner | `bun test` runs the filesystem, preview, validation, state, and platform tests |
+| Executable compiler | `Bun.build({ compile: ... })` produces a standalone host executable containing Bun, the UI, and your application code |
+| Test runner | `bun test` runs the template's platform and validation tests alongside the example's filesystem, preview, and state tests |
 | Web and runtime APIs | `fetch`, `Bun.file`, `Bun.write`, and `Bun.CryptoHasher` download, store, and verify native source |
 | Process API | `Bun.spawn` runs `tar`, `patch`, and Cargo while preserving their exit status |
 | Node-API compatibility | The Bun host loads the compiled native WebView addon directly |
@@ -100,7 +119,7 @@ On a clean clone, `.build/` is absent because it is ignored by Git. Bun therefor
 7. Store the resulting Node-API addon in `.build/`.
 8. Load that addon for development or embed it in the standalone Linux executable.
 
-Any download, checksum, patch, or compilation failure stops the command. Crumb does not fall back to the unpatched published Linux addon.
+Any download, checksum, patch, or compilation failure stops the command. The build does not fall back to the unpatched published Linux addon.
 
 The generated addon is cached after a successful build. If `.build/nativewindow-webview-v1.0.6/native-window.linux-x64-gnu.node` already exists, the current script trusts it and skips rebuilding. A normal Git clone cannot inherit that file, but a copied working directory can. Remove the generated addon before running `bun run build:native` when you need to force a clean native rebuild.
 
@@ -123,9 +142,9 @@ bun install
 bun run dev
 ```
 
-Development loads the prebuilt `@nativewindow/webview-darwin-arm64` binding from `node_modules`; the Linux-only native patch and GTK packages are not involved. Close the Crumb window to stop the development process.
+Development loads the prebuilt `@nativewindow/webview-darwin-arm64` binding from `node_modules`; the Linux-only native patch and GTK packages are not involved. Close the window to stop the development process.
 
-Crumb discovers Home, existing common directories, root, and accessible children of `/Volumes`. macOS may restrict Desktop, Documents, Downloads, removable volumes, or other protected locations. Crumb reports those failures without requesting elevated privileges. If access is desired, grant it to the terminal application used to launch Crumb under **System Settings → Privacy & Security → Files and Folders** (or Full Disk Access only when intentionally required).
+The `file-explorer` example discovers Home, existing common directories, root, and accessible children of `/Volumes`. macOS may restrict Desktop, Documents, Downloads, removable volumes, or other protected locations. The example reports those failures without requesting elevated privileges. If access is desired, grant it to the terminal application used to launch it under **System Settings → Privacy & Security → Files and Folders** (or Full Disk Access only when intentionally required).
 
 ## Linux setup
 
@@ -178,13 +197,15 @@ cd "$CRUMB_CHECK_DIR"
 ./crumb-macos-arm64
 ```
 
-The relocated executable has been verified from an otherwise empty directory without Bun, Node.js, npm, the repository, or network access in its runtime path. It is approximately 62 MiB because it embeds Bun, Crumb, the UI, and the native binding.
+The relocated executable has been verified from an otherwise empty directory without Bun, Node.js, npm, the repository, or network access in its runtime path. It is approximately 62 MiB because it embeds Bun, the host, the UI, and the native binding.
 
-The raw executable is linker-signed ad hoc, not signed with an Apple Developer ID, and not notarized. A locally built executable runs normally. If a downloaded copy is quarantined, the safest option is to build it from source; otherwise, verify its provenance and use **System Settings → Privacy & Security → Open Anyway** if macOS offers that control. Never run Crumb with `sudo`.
+The raw executable is linker-signed ad hoc, not signed with an Apple Developer ID, and not notarized. A locally built executable runs normally. If a downloaded copy is quarantined, the safest option is to build it from source; otherwise, verify its provenance and use **System Settings → Privacy & Security → Open Anyway** if macOS offers that control. Never run it with `sudo`.
 
 The resulting executable contains the Bun runtime, host code, browser UI, CSS, and application-owned assets. It does not require Bun, Node.js, the source tree, or adjacent application files at runtime. Native system WebView libraries remain operating-system dependencies.
 
-## Using Crumb
+## Using the file-explorer example
+
+These instructions describe the example application, not the template.
 
 - Select a location in the left pane to open it.
 - Select a directory entry once to preview it.
@@ -206,9 +227,9 @@ The resulting executable contains the Bun runtime, host code, browser UI, CSS, a
 | Forward | `Ctrl` + `]` | `Command` + `]` |
 | Toggle hidden files | `Ctrl` + `Shift` + `.` | `Command` + `Shift` + `.` |
 
-## Preview behavior
+## Preview behavior in the example
 
-Crumb treats names, paths, metadata, and file contents as untrusted data.
+The example treats names, paths, metadata, and file contents as untrusted data.
 
 | Content | Behavior |
 | --- | --- |
@@ -223,7 +244,7 @@ Directory listings contain at most 50,000 entries and never recurse automaticall
 
 ## Architecture
 
-Crumb has two application layers:
+Every Crumb application has two layers — the template supplies the outer three rows, your code supplies the handlers:
 
 ```text
 Native window and WebView
@@ -236,14 +257,16 @@ Native window and WebView
             └── Native window lifecycle
 ```
 
-The WebView can call only four host operations:
+The WebView can call only the operations the application declares — nothing else is reachable, and every input is validated before a handler runs. There is no generic filesystem binding and no eval-style bridge. The embedded document also uses a restrictive Content Security Policy that blocks external connections, frames, objects, forms, and unintended scripts.
+
+The `file-explorer` example declares four:
 
 - `getPlatformInfo`
 - `getLocations`
 - `listDirectory`
 - `getPreview`
 
-There is no generic filesystem binding. Production source is statically checked for mutation, whole-file generic reads, and shell execution. The embedded document also uses a restrictive Content Security Policy that blocks external connections, frames, objects, forms, and unintended scripts.
+All four are read-only, and `bun run verify:readonly` statically checks the example's source for mutation, whole-file generic reads, and shell execution. That check belongs to the example. Your application declares its own operations and is not bound by it.
 
 ### Native Wayland patch
 
@@ -255,7 +278,7 @@ The patch is stored at [`native/nativewindow-webview-v1.0.6-wayland.patch`](./na
 
 | Command | Purpose |
 | --- | --- |
-| `bun run dev` | Build the embedded UI and launch Crumb |
+| `bun run dev` | Build the embedded UI and launch the example |
 | `bun run build:native` | Build the patched Linux native addon |
 | `bun run build:ui` | Build `dist/ui.html` |
 | `bun run build --target=linux-x64` | Build the Linux standalone executable |
@@ -279,6 +302,24 @@ openspec/      Change proposal, design, requirements, and task tracking
 images/        Crumb artwork
 ```
 
+Template-owned and example-owned code are not yet separated by directory. Today they are interleaved inside the same files — `src/host/main.ts` holds both the window bootstrap and the example's four handlers, and `src/shared/contracts.ts` holds both the transport types and the example's domain types. Separating them is the next change.
+
+### Where this is going
+
+The layout below does not exist yet. It is the target of the `extract-crumb-kit` change, recorded here so the direction is visible while reading the current code:
+
+```text
+src/kit/          The template itself: window bootstrap, RPC router and client,
+                  result and error types, platform detection — domain-free
+src/app/          Your application: host handlers, UI, shared types
+app.config.ts     Name, window title and size, CSP, build targets, declared operations
+examples/
+  minimal/        One window, one operation, a button
+  file-explorer/  Today's example, moved wholesale
+```
+
+That change also renames the build-time virtual modules `crumb:ui` and `crumb:native` to `app:ui` and `app:native`. The project keeps the name Crumb; an application built on it should carry no Crumb branding in its own source.
+
 ## Verification
 
 Run the complete local checks:
@@ -294,13 +335,21 @@ The current suite contains 36 automated tests covering filesystem behavior, vali
 
 ## Current limitations
 
+These apply to anything you build with Crumb:
+
 - Windows is not supported.
-- Linux requires a native Wayland session.
+- Linux requires a native Wayland session; X11 and XWayland are not supported.
 - Intel Macs are not supported; the macOS release target is arm64 only.
-- Search, file watching, tabs, multiple windows, and custom sorting are out of scope.
-- Crumb does not edit, launch, copy, move, rename, or delete files.
-- PDF, audio, video, archives, Office documents, and SVG receive metadata-only previews.
+- Releases must be built on their target operating system.
 - Release binaries are currently unsigned and are not packaged as installers or macOS application bundles.
+- One window per application; multiple windows are not yet supported.
+- There is no watch mode — changing the UI means restarting `bun run dev`.
+
+These apply only to the `file-explorer` example and disappear when you delete it:
+
+- Search, file watching, tabs, and custom sorting are out of scope.
+- The example does not edit, launch, copy, move, rename, or delete files.
+- PDF, audio, video, archives, Office documents, and SVG receive metadata-only previews.
 
 ## Troubleshooting
 
@@ -334,7 +383,7 @@ chmod +x dist/crumb-macos-arm64
 ./dist/crumb-macos-arm64
 ```
 
-If Crumb opens but a protected folder is unavailable, review the macOS privacy guidance in [macOS setup](#macos-setup). Filesystem permission errors are recoverable and Crumb does not change permissions.
+If the example opens but a protected folder is unavailable, review the macOS privacy guidance in [macOS setup](#macos-setup). Filesystem permission errors are recoverable and the example does not change permissions.
 
 ### macOS cannot verify the developer
 
@@ -367,7 +416,9 @@ Everyone is invited and welcome to contribute: open issues, propose pull request
 
 This project follows the [FOSS Pluralism Manifesto](./FOSS_PLURALISM_MANIFESTO.md), which affirms respect for people, freedom to critique ideas, and space for diverse perspectives.
 
-Keep changes aligned with Crumb's core constraints: view-only filesystem access, bounded reads, native WebViews, no local server, no network dependency at runtime, and no X11/XWayland fallback on Linux.
+Keep changes aligned with Crumb's core constraints: native WebViews, an embedded offline document, a narrow declared and validated host surface, no local server, no network dependency at runtime, and no X11/XWayland fallback on Linux.
+
+The `file-explorer` example carries two constraints of its own that Crumb does not impose on you: view-only filesystem access and bounded reads. Keep those intact when changing the example — but do not treat them as rules for an application you build on the template.
 
 Before submitting a change, run the verification commands above and update the relevant OpenSpec artifacts when behavior or requirements change.
 

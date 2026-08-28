@@ -1,5 +1,23 @@
 # Crumb - View-Only Three-Column File Explorer
 
+> [!WARNING]
+> **Superseded — kept for history.**
+>
+> This document specified Crumb when Crumb was understood to be a file explorer.
+> Crumb is now the template, toolchain, and documentation for shipping a
+> server-less web app as a desktop app; see [`README.md`](../README.md).
+>
+> What this document describes is the **`file-explorer` example application**,
+> not the template, and parts of it no longer match the code. Where it states a
+> constraint as Crumb's — most notably the read-only filesystem invariant in
+> sections 4.1 and 97 — that constraint belongs to the example, which adopted it
+> to stay simple and auditable. It is not a limit the template imposes on
+> applications you build.
+>
+> The living specification is [`openspec/specs/`](../openspec/specs/), where each
+> capability states whether it is a template promise or a `file-explorer`
+> requirement.
+
 > a tiny file explorer built with Bun.
 
 ## Product and Technical Specification
