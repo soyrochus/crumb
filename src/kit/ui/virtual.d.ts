@@ -17,3 +17,10 @@ declare module "app:native" {
     loadHtmlOrigin(): string;
   };
 }
+
+declare module "app:extensions" {}
+
+declare module "app:ext/*" {
+  const extension: Record<string, (...arguments_: unknown[]) => unknown>;
+  export default extension;
+}

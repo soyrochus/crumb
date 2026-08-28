@@ -7,6 +7,7 @@ This describes Crumb's build pipeline — the template's, not any one applicatio
 - `bun run dev` builds the in-memory UI artifact and launches the default application in a child process, watching sources and restarting on change. `--example=<name>` selects another application; `--no-watch` runs once.
 - Developer tools are enabled only under `bun run dev`. Release builds disable them and no configuration can override that.
 - `bun run build:native` downloads, verifies, patches, and compiles the pinned Linux native addon.
+- `bun run rebuild:extensions --example=<name>` removes and rebuilds the selected application's declared Rust extensions for diagnostics. Ordinary development and release builds do this automatically when an artifact is missing or stale.
 - `bun run build --target=linux-x64` produces `dist/starter-linux-x64`; `--example=file-explorer` produces `dist/file-explorer-linux-x64`. The artifact is named after the selected application unless `--output=<name>` overrides the stem.
 - `bun run build --target=macos-arm64` produces the macOS arm64 executable under the same naming rule.
 - `bun test` and `bun run typecheck` run the automated verification suite.
@@ -38,7 +39,9 @@ Copy only the executable to an empty directory, disable networking, and exercise
 
 The supported target is Apple Silicon (`arm64`) on macOS 13 or newer using the system WKWebView. The release was verified on macOS 26.5.2 arm64 with Bun 1.4.0. The compiled Bun host declares macOS 13.0 as its minimum; the embedded `@nativewindow/webview-darwin-arm64` addon declares macOS 11.0, so the host determines the effective minimum.
 
-No separate WebView runtime, Rust toolchain, C compiler, Xcode, or Homebrew package is needed to build or run a Crumb application. The macOS native addon is installed as a prebuilt optional dependency by `bun install`. Apple Command Line Tools are needed only for the documented `otool` inspection.
+A TypeScript-only application needs no separate WebView runtime, Rust toolchain, C compiler, Xcode, or Homebrew package. The macOS WebView addon is installed as a prebuilt optional dependency by `bun install`.
+
+An application declaring a Rust extension needs a stable Rust toolchain (`rustc` and Cargo) and Apple Command Line Tools. Rust uses their C compiler/linker and SDK; Crumb also uses `install_name_tool` to replace Cargo's build-machine install name and `otool` for dependency inspection. Full Xcode and Homebrew are not required. The macOS probe was built with Rust 1.97.1 and Command Line Tools from `/Library/Developer/CommandLineTools`.
 
 Build and inspect the release on an Apple Silicon Mac:
 
@@ -56,3 +59,11 @@ The executable was copied alone to `/tmp/crumb-macos-readme-check`, launched fro
 The artifact is linker-signed ad hoc rather than Developer ID-signed and notarized. A locally compiled artifact runs normally. For quarantined downloaded artifacts, prefer rebuilding from source; after independently verifying provenance, macOS may offer **Open Anyway** under **System Settings → Privacy & Security**. Crumb applications must not be run with `sudo`.
 
 macOS privacy controls can deny access to Desktop, Documents, Downloads, removable volumes, or other protected locations. This is a recoverable application error, not a startup failure. Grant Files and Folders access to the launching terminal only when the user intentionally wants that access.
+
+## Application-owned Rust extensions
+
+`ApplicationConfig.nativeExtensions` maps a stable logical name to a repository-relative crate directory. The crate must have a readable `Cargo.toml` and produce a `cdylib`. The builder validates all declarations before starting any build, invokes Cargo with `CARGO_TARGET_DIR` below `.build/native-extensions/`, checks the expected library exists, copies it to a target-specific `.node`, records provenance and a digest, and exposes it to host code as `app:ext/<name>`.
+
+Cache identity contains the extension, platform, and architecture. Source content is fingerprinted. A stale source rebuild removes the previously loadable artifact before Cargo runs; a failed build therefore cannot fall back to old code. Artifacts without matching provenance or with a mismatched digest are rejected.
+
+Release compilation generates literal `require(...)` references for all declarations so Bun embeds the addons. Release inspection prints non-system dynamic dependencies. The `native-probe` macOS addon reports only `/usr/lib/libSystem.B.dylib`, has an `@rpath/probe.node` install name, and leaves no repository path in the executable.

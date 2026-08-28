@@ -1,11 +1,12 @@
 import { createRequire } from "node:module";
 import type { BunPlugin } from "bun";
 import { buildNativeAddon } from "./build-native";
+import { buildNativeExtensions, formatBuildMeasurement, inspectNativeExtensionArtifact, type NativeTarget } from "./build-extensions";
 import { buildUiHtml } from "./ui-artifact";
 import { registry } from "../app.config";
 import { InvalidOutputNameError, MissingApplicationNameError, outputPath, resolveApplication, selectedApplicationName, selectedOutputName, UnknownApplicationError } from "../src/kit/shared/config";
 
-type TargetName = "linux-x64" | "macos-arm64";
+type TargetName = NativeTarget;
 const requested = (Bun.argv.find((argument) => argument.startsWith("--target="))?.split("=")[1]
   ?? (process.platform === "darwin" ? "macos-arm64" : "linux-x64")) as TargetName;
 let application;
@@ -44,6 +45,18 @@ if (process.platform !== buildHost) {
   process.exit(1);
 }
 
+// Validate all extension declarations and build their artifacts before any UI,
+// WebView, or executable build starts.
+const extensions = await buildNativeExtensions(selectedName, application, requested);
+for (const extension of extensions) console.log(formatBuildMeasurement(extension));
+for (const extension of extensions) {
+  const inspection = await inspectNativeExtensionArtifact(extension);
+  console.log(inspection.nonSystemDependencies.length === 0
+    ? `${extension.declaration.name}: no non-system dynamic dependencies`
+    : `${extension.declaration.name}: non-system dynamic dependencies: ${inspection.nonSystemDependencies.join(", ")}`);
+}
+const extensionByName = new Map(extensions.map((extension) => [extension.declaration.name, extension.artifactPath]));
+
 const html = await buildUiHtml(application);
 const require = createRequire(import.meta.url);
 let addonPath: string;
@@ -65,6 +78,25 @@ const embedPlugin: BunPlugin = {
       contents: `const binding = require(${JSON.stringify(addonPath)}); export default function getNativeBinding() { return { NativeWindow: binding.NativeWindow, loadHtmlOrigin: binding.loadHtmlOrigin }; }`,
       loader: "js",
     }));
+    build.onResolve({ filter: /^app:extensions$/ }, () => ({ path: "all", namespace: "app-extensions" }));
+    build.onLoad({ filter: /.*/, namespace: "app-extensions" }, () => ({
+      // Literal requires make every declaration visible to Bun's standalone
+      // dependency scanner, even if application code reaches it only later.
+      contents: extensions.map((extension) => `require(${JSON.stringify(extension.artifactPath)});`).join("\n"),
+      loader: "js",
+    }));
+    build.onResolve({ filter: /^app:ext\/[a-z][a-z0-9_-]*$/ }, ({ path }) => ({ path: path.slice("app:ext/".length), namespace: "app-extension" }));
+    build.onLoad({ filter: /.*/, namespace: "app-extension" }, ({ path }) => {
+      const artifact = extensionByName.get(path);
+      // The root registry imports every application config, so Bun can discover
+      // an extension import belonging to an unselected application. Keep that
+      // branch loadable without referencing or embedding its artifact.
+      if (!artifact) return {
+        contents: `export default new Proxy({}, { get() { throw new Error(${JSON.stringify(`Application "${selectedName}" does not declare native extension "${path}"`)}); } });`,
+        loader: "js",
+      };
+      return { contents: `const extension = require(${JSON.stringify(artifact)}); export default extension;`, loader: "js" };
+    });
   },
 };
 

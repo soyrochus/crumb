@@ -8,6 +8,7 @@
 import { watch } from "node:fs";
 import { registry } from "../app.config";
 import { resolveApplication, UnknownApplicationError, type ApplicationConfig, MissingApplicationNameError, selectedApplicationName } from "../src/kit/shared/config";
+import { applicationWatchRoots } from "./watch-roots";
 
 function selectApplication(): { name: string; application: ApplicationConfig } {
   try {
@@ -29,7 +30,7 @@ let child: Bun.Subprocess | null = null;
 let restarting = false;
 
 function start(): void {
-  child = Bun.spawn(["bun", "run", "scripts/runner.ts"], {
+  child = Bun.spawn(["bun", "--preload", "./scripts/extension-preload.ts", "scripts/runner.ts"], {
     env: { ...process.env, CRUMB_APPLICATION: name, CRUMB_DEVTOOLS: "1" },
     stdout: "inherit",
     stderr: "inherit",
@@ -48,11 +49,6 @@ function stop(): void {
 }
 
 /** Source roots to watch. Never `dist/`, `.build/`, or `node_modules/`. */
-function watchRoots(): string[] {
-  const uiRoot = application.entries.uiScript.split("/").slice(0, -2).join("/");
-  return ["src/kit", uiRoot, "app.config.ts"].filter((path) => path.length > 0);
-}
-
 process.on("SIGINT", () => { stop(); process.exit(0); });
 process.on("SIGTERM", () => { stop(); process.exit(0); });
 
@@ -71,7 +67,7 @@ if (watching) {
       restarting = false;
     }, 120);
   };
-  for (const root of watchRoots()) {
+  for (const root of applicationWatchRoots(application)) {
     try {
       watch(root, { recursive: true }, (_event, file) => onChange(file ? `${root}/${file}` : null));
     } catch {

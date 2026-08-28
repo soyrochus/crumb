@@ -3,6 +3,7 @@ import UI_HTML from "app:ui";
 import { devtoolsEnabled, type ApplicationConfig } from "../shared/config";
 import { getPlatformInfo, StartupConfigurationError, startupErrorMessage } from "./platform";
 import { createRpcRouter, type RpcRequest } from "./rpc";
+import { shutdownAndExit } from "./shutdown";
 
 /**
  * Opens the application's window and serves its declared operations. The kit
@@ -56,7 +57,13 @@ export function startApplication(config: ApplicationConfig, options: StartOption
       })().catch(() => undefined);
     });
     window.onNavigationBlocked(() => undefined);
-    window.onClose(() => { closing = true; process.exit(0); });
+    window.onClose(() => {
+      if (closing) return;
+      // Set this before awaiting cleanup: no further page messages are accepted
+      // and outstanding responses are discarded once close begins.
+      closing = true;
+      void shutdownAndExit();
+    });
     window.loadHtml(UI_HTML);
   } catch (error: unknown) {
     console.error(startupErrorMessage(error));

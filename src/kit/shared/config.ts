@@ -26,6 +26,12 @@ export interface ApplicationConfig {
     uiDocument: string;
     uiStyles: string;
   };
+  /**
+   * Application-owned Rust crates, keyed by the stable logical name imported
+   * as `app:ext/<name>`. Directories are relative to the repository root;
+   * artifact names and target paths are deliberately not configurable.
+   */
+  nativeExtensions?: Record<string, string>;
   operations: Operations;
 }
 

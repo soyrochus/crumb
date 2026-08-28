@@ -1,4 +1,5 @@
 import SELECTED_APPLICATION from "app:selection";
+import "app:extensions";
 import { startApplication } from "./src/kit/host/main";
 import { resolveApplication } from "./src/kit/shared/config";
 import { registry } from "./app.config";

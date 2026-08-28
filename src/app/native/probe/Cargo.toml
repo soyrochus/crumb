@@ -1,0 +1,11 @@
+[package]
+name = "crumb-probe"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "crumb_probe"
+crate-type = ["cdylib"]
+
+[profile.release]
+strip = "symbols"

@@ -1,6 +1,7 @@
 import type { ApplicationRegistry } from "./src/kit/shared/config";
 import { starter } from "./src/app/app.config";
 import { fileExplorer } from "./examples/file-explorer/app.config";
+import { nativeProbe } from "./examples/native-probe/app.config";
 
 /**
  * The applications this repository can build.
@@ -14,5 +15,6 @@ export const registry: ApplicationRegistry = {
   applications: {
     starter,
     "file-explorer": fileExplorer,
+    "native-probe": nativeProbe,
   },
 };

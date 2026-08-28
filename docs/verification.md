@@ -1,6 +1,6 @@
 # Release verification record
 
-Verified on 27 August 2026. The artifacts under test are the `file-explorer` example, which is the application this repository currently builds; the results below record the template's build and runtime guarantees as exercised through it. Measurements and outcomes are unchanged from the original record.
+Originally verified on 27 August 2026; the native-extension additions below were verified on 28 August 2026. The file-explorer record remains the cross-platform template acceptance, and `native-probe` records the new application-owned Rust path.
 
 ## Support matrix
 
@@ -33,9 +33,13 @@ The prior Ubuntu verification identified `dist/crumb-linux-x64` as an x86-64 ELF
 
 `file dist/crumb-macos-arm64` reported `Mach-O 64-bit executable arm64`. `otool -L` reported only Apple `/usr/lib` dependencies for the outer executable; the embedded native addon links only Apple system frameworks and libraries, including WebKit and AppKit. The approximately 62-MiB executable was copied alone to `/tmp/crumb-macos-readme-check`, launched from there, exercised, and closed. It did not resolve Bun, Node.js, npm, source, or adjacent application assets. Runtime application code performs no network operation and the WebView CSP blocks connections.
 
+The `native-probe` application was built on macOS arm64, copied into an otherwise empty temporary runtime location, and its host operation returned `nativeProbeAnswer: 42`. The relocated process then closed cleanly. `otool -L` on the embedded probe reported its sanitized `@rpath/probe.node` identifier and `/usr/lib/libSystem.B.dylib`, with no non-system dependency. `strings` found no repository or Cargo target path in the executable.
+
+The clean extension compile took 2.12 seconds; an incremental forced compile took 0.61 seconds; a verified warm-cache lookup took 1.4 milliseconds. The host had Rust 1.97.1, Cargo 1.97.1, and Apple Command Line Tools supplying `cc`, the macOS SDK, `install_name_tool`, and `otool`. TypeScript-only builds invoked no Cargo extension build.
+
 ## Automated verification
 
-`bun test`, `bun run typecheck`, and `bun run verify:readonly` passed on macOS arm64 and Ubuntu Linux x64. The suite has 36 tests and 87 expectations. Filesystem fixtures are created below the operating-system temporary directory and removed after every test; production and user-owned paths are not modified.
+The pre-extension `bun test`, `bun run typecheck`, and `bun run verify:readonly` acceptance passed on macOS arm64 and Ubuntu Linux x64. After the native-extension change, the macOS suite has 90 passing tests and 193 expectations; strict typechecking and the unchanged read-only scan also pass. Filesystem and native-cache fixtures are created below the operating-system temporary directory and removed after every test; production and user-owned paths are not modified.
 
 `bun run verify:performance` passed on the verified macOS host with these measurements:
 

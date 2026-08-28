@@ -139,7 +139,9 @@ The generated addon is cached after a successful build. If `.build/nativewindow-
 
 ## macOS setup
 
-Crumb supports Apple Silicon (`arm64`) on macOS 13 or newer and uses the WKWebView included with macOS. No separate WebView runtime, Rust toolchain, C compiler, Xcode, or Homebrew package is needed for ordinary development or release builds. The verified host is macOS 26.5.2 arm64 with Bun 1.4.0; the generated executable declares macOS 13.0 as its minimum deployment version.
+Crumb supports Apple Silicon (`arm64`) on macOS 13 or newer and uses the WKWebView included with macOS. A TypeScript-only application needs no separate WebView runtime, Rust toolchain, C compiler, Xcode, or Homebrew package for ordinary development or release builds. The verified host is macOS 26.5.2 arm64 with Bun 1.4.0; the generated executable declares macOS 13.0 as its minimum deployment version.
+
+Declaring a Rust extension adds build-time requirements: a stable Rust toolchain containing `rustc` and Cargo, plus Apple Command Line Tools for the linker, SDK, `install_name_tool`, and release inspection. Install the latter with `xcode-select --install`; the [official Rust installation guide](https://rust-lang.github.io/book/ch01-01-installation.html) likewise identifies a linker/C compiler as required and gives that command for macOS. The probe was verified with Rust 1.97.1 and Command Line Tools at `/Library/Developer/CommandLineTools`; full Xcode and Homebrew are not required.
 
 Confirm the machine and runtime before installing dependencies:
 
@@ -288,7 +290,38 @@ The `file-explorer` example declares four operations:
 - `listDirectory`
 - `getPreview`
 
-All four are read-only, and `bun run verify:readonly` statically checks `src/app/` for mutation, whole-file generic reads, and shell execution. That check belongs to the example. Your application declares its own operations in `app.config.ts` and is not bound by it.
+All four are read-only, and `bun run verify:readonly` statically checks the file-explorer's TypeScript under `examples/file-explorer/src/` for mutation, whole-file generic reads, and shell execution. It scans host-language source only. It does not inspect Rust or make any claim about a native extension, so an application combining a read-only policy with an extension must review that native code separately. The check belongs to the example; your application declares its own operations in `app.config.ts` and is not bound by it.
+
+### Rust native extensions
+
+An application can declare an application-owned Rust `cdylib` by logical name. Paths are relative to the repository root; the toolchain derives every target-specific artifact name and location.
+
+```ts
+export const application: ApplicationConfig = {
+  // ...window, CSP, entries, and operations...
+  nativeExtensions: {
+    probe: "src/app/native/probe",
+  },
+};
+```
+
+Crates live with their application: `src/app/native/<name>/` for the starter or `examples/<app>/native/<name>/` for an example. Import a declared extension from trusted host code with the same logical module on every platform:
+
+```ts
+import probe from "app:ext/probe";
+
+const answer = probe.answer();
+```
+
+The permanent `native-probe` fixture demonstrates the complete shape in [`examples/native-probe/`](./examples/native-probe/) and [`src/app/native/probe/`](./src/app/native/probe/). Its config lazily loads its local handler module so repository tooling can inspect all application configs before selecting and building one.
+
+Extension source is watched during `bun run dev`. A native change compiles the crate and restarts the host process; native code is never replaced inside a running process. UI-only changes reuse the verified artifact. A successful artifact is accepted only when its source fingerprint, extension name, target, architecture, and digest match its provenance metadata. Use `bun run rebuild:extensions --example=<app>` for a forced clean extension rebuild.
+
+Native extensions are trusted host code. They run in the Bun process with its full operating-system permissions, can read or write files, use the network, and crash or terminate the application. They do not create a WebView-native bridge: page input still reaches native code only through declared operations and their validators.
+
+Register cleanup with `registerShutdownHandler` from `src/kit/host/shutdown.ts`. Handlers run once in registration order when the window closes. Failures are reported without skipping later handlers; the whole shutdown phase is bounded to 3 seconds, after which the incomplete handler is named and the process exits anyway.
+
+Measured on the verified macOS arm64 host, the dependency-free probe took 2.12 seconds for a cold release compile, 0.61 seconds for an incremental forced compile, and 1.4 milliseconds for a verified warm-cache lookup. Real extensions with dependencies will cost more. The release build reports non-system dynamic dependencies; the probe adds none.
 
 ### Developer tools
 
@@ -308,6 +341,7 @@ The patch is stored at [`native/nativewindow-webview-v1.0.6-wayland.patch`](./na
 | `bun run dev --example=file-explorer` | Run a named application instead |
 | `bun run dev --no-watch` | Run once without watching |
 | `bun run build:native` | Build the patched Linux native addon |
+| `bun run rebuild:extensions --example=<name>` | Clean and rebuild a selected application's declared extensions |
 | `bun run build:ui` | Build `dist/ui.html` |
 | `bun run build --target=linux-x64` | Build the Linux standalone executable |
 | `bun run build --example=<name> --target=<target>` | Build a named application; the artifact is named after it |
@@ -326,6 +360,7 @@ src/kit/       The template: window bootstrap, RPC router and browser bridge,
 src/app/       The starter — a minimal application. This is what you edit.
 examples/
   file-explorer/  The worked example, with its own config, source, and tests
+  native-probe/   Permanent end-to-end fixture for native extensions
 app.config.ts  Registry of available applications and which one is default
 main.ts        Release entry point: hands an application to the kit
 scripts/       Development supervisor, runner, native, UI, and build scripts
@@ -352,7 +387,7 @@ bun run verify:performance
 bun run verify:readonly
 ```
 
-The current suite contains 36 automated tests covering filesystem behavior, validation, previews, navigation state, supported platforms, and the production capability boundary. The performance command briefly opens a native window and closes it automatically. The complete suite is verified on macOS 26.5.2 arm64 and Ubuntu 26.04 x64/Wayland; fixtures are created only below the operating system's temporary directory and are removed after each run.
+The current suite contains 90 automated tests and 193 expectations covering filesystem behavior, validation, previews, navigation state, supported platforms, shutdown, extension declarations, cache safety, watching, and the production capability boundary. The performance command briefly opens a native window and closes it automatically. The complete pre-extension suite is verified on macOS 26.5.2 arm64 and Ubuntu 26.04 x64/Wayland; the extension additions are locally verified on macOS arm64 pending the Linux acceptance noted in the change tasks. Fixtures are created only below the operating system's temporary directory and are removed after each run.
 
 ## Current limitations
 
@@ -364,7 +399,7 @@ These apply to anything you build with Crumb:
 - Releases must be built on their target operating system.
 - Release binaries are currently unsigned and are not packaged as installers or macOS application bundles.
 - One window per application; multiple windows are not yet supported.
-- There is no watch mode — changing the UI means restarting `bun run dev`.
+- Native extensions are source-built on the target operating system; cross-compilation and prebuilt reusable extensions are not supported yet.
 
 These apply only to the `file-explorer` example and disappear when you delete it:
 
