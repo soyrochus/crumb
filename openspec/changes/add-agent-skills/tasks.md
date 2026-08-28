@@ -58,4 +58,4 @@
 - [x] 8.2 Confirm `bun run install:skills --check` passes on the committed tree, and fails as specified after editing one source file
 - [x] 8.3 Run `bun test` and `bun run typecheck`
 - [x] 8.4 Confirm no runtime impact: build an application before and after installation and confirm the executable is unaffected and contains no skill content
-- [ ] 8.5 Exercise each skill end to end with an assistant on a scratch application — declare an operation, add an extension, register an application — and correct any step that produced a partially correct result
+- [x] 8.5 Exercise each skill end to end with an assistant on a scratch application — declare an operation, add an extension, register an application — and correct any step that produced a partially correct result

@@ -16,13 +16,13 @@ Copy the starter's structure to a new directory, for example
 `examples/notes/`:
 
 ```text
-app.config.ts       the ApplicationConfig this application exports
-host/handlers.ts    trusted Bun code
-shared/contracts.ts the AppOperations map
-shared/validators.ts one validator per operation
-ui/index.html       the source document
-ui/app.ts           the page's entry script
-ui/styles.css       the page's stylesheet
+app.config.ts           the ApplicationConfig this application exports
+src/host/handlers.ts    trusted Bun code
+src/shared/contracts.ts the AppOperations map
+src/shared/validators.ts one validator per operation
+src/ui/index.html       the source document
+src/ui/app.ts           the page's entry script
+src/ui/styles.css       the page's stylesheet
 ```
 
 ## The config
@@ -33,17 +33,17 @@ Export one `ApplicationConfig`. `entries` paths are relative to the
 ```ts
 import type { ApplicationConfig } from "../../src/kit/shared/config";
 import { operation } from "../../src/kit/shared/transport";
-import { handlers } from "./host/handlers";
-import { validators } from "./shared/validators";
+import { handlers } from "./src/host/handlers";
+import { validators } from "./src/shared/validators";
 
 export const notes: ApplicationConfig = {
   name: "Notes",
   window: { title: "Notes", width: 720, height: 520, minWidth: 420, minHeight: 320, resizable: true },
   csp: "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'",
   entries: {
-    uiScript: "examples/notes/ui/app.ts",
-    uiDocument: "examples/notes/ui/index.html",
-    uiStyles: "examples/notes/ui/styles.css",
+    uiScript: "examples/notes/src/ui/app.ts",
+    uiDocument: "examples/notes/src/ui/index.html",
+    uiStyles: "examples/notes/src/ui/styles.css",
   },
   operations: {
     // See the crumb-add-operation skill for the five parts each one needs.
@@ -93,7 +93,7 @@ application is a normal build target.
 **The policy is declared twice, in two forms, and both must be updated
 together.**
 
-- `ui/index.html` uses `script-src 'self'; style-src 'self'` — in development
+- `src/ui/index.html` uses `script-src 'self'; style-src 'self'` — in development
   the script and stylesheet are separate files the document links to.
 - `app.config.ts` uses `script-src 'unsafe-inline'; style-src 'unsafe-inline'` —
   the release build inlines both into a single embedded HTML document, so they

@@ -98,6 +98,32 @@ Treat the extension's exports as untyped: check that what you imported is a
 function and that what it returned has the shape you expect, and fail with a
 clear error rather than propagating a wrong value.
 
+## Keep configuration importable
+
+Repository tools and tests import the application registry before Crumb's
+runner has installed the `app:ext/*` resolver. If `app.config.ts` statically
+imports a host module that statically imports an extension, merely inspecting
+the registry fails. Pair the operation with a small lazy wrapper in the config,
+and keep the logical native import in trusted host code:
+
+```ts
+const handlers = {
+  async nativeAnswer(input: Record<string, never>) {
+    return (await import("./host/handlers")).handlers.nativeAnswer(input);
+  },
+};
+
+// ...
+operations: {
+  nativeAnswer: operation(validators.nativeAnswer, handlers.nativeAnswer),
+},
+```
+
+For an application under `examples/<name>/`, adapt the import to its actual
+host path, normally `./src/host/handlers`. This delays loading native code until
+a validated operation is dispatched; it does not move the import into the
+WebView or make the native module selectable.
+
 ## Building
 
 `bun run dev` validates the declaration, builds a missing or stale crate, and

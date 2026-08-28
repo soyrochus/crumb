@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
+  <title>Crumbbrot — Fractal explorer</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main id="app">
+    <header class="toolbar">
+      <div class="identity">
+        <span class="mark" aria-hidden="true"></span>
+        <div><p>Rust-powered explorer</p><h1>Crumbbrot</h1></div>
+      </div>
+
+      <label>Set
+        <select id="mode">
+          <option value="mandelbrot">Mandelbrot</option>
+          <option value="julia">Julia</option>
+        </select>
+      </label>
+      <label>Iterations
+        <input id="iterations" type="number" min="16" max="2000" step="16" value="320">
+      </label>
+      <fieldset id="julia-controls" disabled>
+        <legend>Julia parameter</legend>
+        <label>Real <input id="julia-real" type="number" min="-2.5" max="2.5" step="0.001" value="-0.8"></label>
+        <label>Imaginary <input id="julia-imaginary" type="number" min="-2.5" max="2.5" step="0.001" value="0.156"></label>
+      </fieldset>
+      <button id="reset" type="button">Reset view</button>
+    </header>
+
+    <section class="viewport" aria-label="Interactive fractal viewport">
+      <canvas id="fractal" aria-label="Rendered fractal. Drag to pan and use the wheel to zoom."></canvas>
+      <div class="hint">Drag to pan · Scroll to zoom toward the pointer</div>
+      <div id="busy" class="busy" hidden>Rendering in Rust…</div>
+    </section>
+
+    <footer>
+      <span id="coordinates">center −0.500000 + 0.000000i</span>
+      <span id="zoom">view width 3.500e+0</span>
+      <span id="render-time">Waiting for first render</span>
+      <span id="status" role="status" aria-live="polite">Starting renderer…</span>
+    </footer>
+  </main>
+  <script type="module" src="./app.ts"></script>
+</body>
+</html>

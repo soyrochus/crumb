@@ -19,7 +19,7 @@ If you can build your app as a web page that needs no server, Crumb turns it int
 
 When TypeScript is not enough, declare a Rust crate by logical name in your application config and import it from trusted host code as `app:ext/<name>`. The normal `bun run dev` and `bun run build` commands compile, cache, load, watch, and embed it. There is no separate native packaging workflow and no adjacent `.node` file or Rust toolchain beside the finished executable.
 
-The repository includes two worked applications: `file-explorer` shows the TypeScript-only path, while `activity-monitor` shows the same ordinary web-app structure gaining real operating-system access from an application-owned Rust extension. Both live under `examples/`, separate from the starter you edit.
+The repository includes three worked applications: `file-explorer` shows the TypeScript-only path, `activity-monitor` shows the same ordinary web-app structure gaining real operating-system access from an application-owned Rust extension, and `crumbbrot` uses a Rust extension for CPU-intensive fractal rendering. All three live under `examples/`, separate from the starter you edit.
 
 Crumb is built on [Bun](https://bun.com/) and is, in passing, a practical exploration of Bun as an application toolchain: package management, direct TypeScript execution, browser bundling, automated testing, Node-API compatibility, Cargo orchestration for Rust extensions, and compilation into standalone executables.
 
@@ -91,6 +91,18 @@ Building this example requires stable Rust and Cargo; [rustup](https://rustup.rs
   <figcaption>The <code>activity-monitor</code> example on Linux</figcaption>
 </figure>
 
+## The Crumbbrot skill-built example
+
+[`examples/crumbbrot/`](./examples/crumbbrot/) is an interactive Mandelbrot and Julia-set explorer. Its ordinary HTML, CSS, and TypeScript interface handles the canvas, controls, zooming, panning, resizing, and stale-render coordination. A declared `renderFractal` operation validates each viewport request before trusted host code calls the application-owned `fractal-renderer` Rust extension. The extension performs each coarse-grained RGBA render asynchronously so computation does not block the window.
+
+```sh
+bun run dev --example=crumbbrot
+```
+
+Crumbbrot was created as the end-to-end exercise for Crumb's three shipped agent skills: [`crumb-new-application`](./skills/crumb-new-application/), [`crumb-add-operation`](./skills/crumb-add-operation/), and [`crumb-add-native-extension`](./skills/crumb-add-native-extension/). The assistant followed [`specs/crumbot-skill-demo.md`](./specs/crumbot-skill-demo.md) as its application guide, then corrected the skills where the exercise exposed incomplete guidance. It is therefore both a native-extension example and a concrete demonstration that the skills can carry an application from specification through registration, validated operation, Rust crate, tests, and standalone build.
+
+The example supports cursor-centered zoom, drag-to-pan navigation, bounded iteration controls, configurable Julia parameters, coalesced render requests, obsolete-result rejection, and shutdown cancellation. Its Linux x64 addon and standalone executable have been built and exercised; the crate includes the required macOS arm64 linker configuration, but that target has not yet been verified for this example.
+
 ## Quick start
 
 ### Requirements
@@ -134,6 +146,14 @@ bun run dev --example=activity-monitor
 ```
 
 The first run compiles its Rust crate. Later runs reuse the verified cached addon until its Rust sources or lockfile change.
+
+To run the skill-built fractal example, use:
+
+```sh
+bun run dev --example=crumbbrot
+```
+
+Drag the canvas to pan, use the wheel or trackpad to zoom toward the pointer, and switch between Mandelbrot and Julia modes from the toolbar.
 
 ## Bun in this project
 
@@ -466,6 +486,7 @@ The patch is stored at [`native/nativewindow-webview-v1.0.6-wayland.patch`](./na
 | `bun run dev` | Build and launch the default application, watching for changes |
 | `bun run dev --example=file-explorer` | Run a named application instead |
 | `bun run dev --example=activity-monitor` | Run the Rust-backed activity monitor example |
+| `bun run dev --example=crumbbrot` | Run the skill-built Rust fractal explorer |
 | `bun run dev --no-watch` | Run once without watching |
 | `bun run build:native` | Build the patched Linux native addon |
 | `bun run rebuild:extensions --example=<name>` | Clean and rebuild a selected application's declared extensions |
@@ -490,6 +511,7 @@ src/app/       The starter — a minimal application. This is what you edit.
 examples/
   file-explorer/  TypeScript-only worked example, with its own config and tests
   activity-monitor/ Rust native-extension worked example and system-monitor crate
+  crumbbrot/      Skill-built fractal example and fractal-renderer crate
   native-probe/   Permanent end-to-end fixture for native extensions
 app.config.ts  Registry of available applications and which one is default
 main.ts        Release entry point: hands an application to the kit
@@ -544,7 +566,7 @@ bun run verify:performance
 bun run verify:readonly
 ```
 
-The current suite contains 116 automated tests and 296 expectations covering filesystem behavior, validation, previews, navigation state, activity-monitor formatting and refresh coordination, supported platforms, shutdown, extension declarations, cache safety, watching, installed agent-skill integrity, and the production capability boundary. The performance command briefly opens a native window and closes it automatically. The activity monitor's Rust tests, TypeScript tests, real-data addon calls, embedded release build, and executable-only relocation journey are verified on macOS arm64 and Ubuntu 26.04 x64/Wayland. Both relocated probe executables returned `nativeProbeAnswer: 42`; both relocated activity-monitor executables displayed real system snapshots and process lists. Fixtures are created only below the operating system's temporary directory and are removed after each run.
+The current suite contains 126 automated tests and 336 expectations covering filesystem behavior, validation, previews, navigation state, activity-monitor formatting and refresh coordination, Crumbbrot configuration, validation, viewport mapping and render coordination, supported platforms, shutdown, extension declarations, cache safety, watching, installed agent-skill integrity, and the production capability boundary. The performance command briefly opens a native window and closes it automatically. The activity monitor's Rust tests, TypeScript tests, real-data addon calls, embedded release build, and executable-only relocation journey are verified on macOS arm64 and Ubuntu 26.04 x64/Wayland. Both relocated probe executables returned `nativeProbeAnswer: 42`; both relocated activity-monitor executables displayed real system snapshots and process lists. Crumbbrot's Linux x64 native renderer returned distinct real Mandelbrot and Julia RGBA buffers, and its relocated executable launched successfully from an otherwise empty directory. Fixtures are created only below the operating system's temporary directory and are removed after each run.
 
 ## Current limitations
 

@@ -1,0 +1,16 @@
+[package]
+name = "crumbbrot-fractal-renderer"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+
+[lib]
+name = "crumbbrot_fractal_renderer"
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "3.8.3", default-features = false, features = ["napi4", "dyn-symbols"] }
+napi-derive = "3.5.3"
+
+[profile.release]
+strip = "symbols"
