@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { cp, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { buildNativeExtension, nativeExtensionCacheKey, nativeExtensionCachePaths, nativeTargetIdentity, NativeArtifactMismatchError, type NativeTarget } from "../../scripts/build-extensions";
+import { buildNativeExtension, inspectNativeExtensionArtifact, nativeExtensionCacheKey, nativeExtensionCachePaths, nativeTargetIdentity, NativeArtifactMismatchError, type NativeTarget } from "../../scripts/build-extensions";
 import { validateNativeExtensions, type NativeExtensionDeclaration } from "../../scripts/native-extension-config";
 
 let root: string;
@@ -33,6 +33,7 @@ describe("native extension cache safety", () => {
     const warm = await buildNativeExtension(declaration, target, { buildRoot });
     expect(cold.cacheHit).toBe(false);
     expect(warm.cacheHit).toBe(true);
+    expect((await inspectNativeExtensionArtifact(cold)).nonSystemDependencies).toEqual([]);
 
     const source = join(declaration.sourceRoot, "src/lib.rs");
     await writeFile(source, `${await readFile(source, "utf8")}\n// staleness test\n`);

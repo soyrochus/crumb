@@ -244,6 +244,9 @@ export async function inspectNativeExtensionArtifact(result: BuiltNativeExtensio
     .filter((value): value is string => Boolean(value));
   const nonSystemDependencies = platform === "macos"
     ? dependencies.filter((dependency) => !dependency.startsWith("/usr/lib/") && !dependency.startsWith("/System/Library/") && dependency !== `@rpath/${result.declaration.name}.node`)
-    : dependencies.filter((dependency) => !dependency.startsWith("/lib/") && !dependency.startsWith("/usr/lib/") && dependency !== "linux-vdso.so.1");
+    : dependencies.filter((dependency) => !dependency.startsWith("/lib/")
+      && !dependency.startsWith("/lib64/")
+      && !dependency.startsWith("/usr/lib/")
+      && dependency !== "linux-vdso.so.1");
   return { dependencies, nonSystemDependencies };
 }

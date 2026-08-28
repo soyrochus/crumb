@@ -35,6 +35,8 @@ The prior Ubuntu verification identified `dist/crumb-linux-x64` as an x86-64 ELF
 
 The `native-probe` application was built on macOS arm64, copied into an otherwise empty temporary runtime location, and its host operation returned `nativeProbeAnswer: 42`. The relocated process then closed cleanly. `otool -L` on the embedded probe reported its sanitized `@rpath/probe.node` identifier and `/usr/lib/libSystem.B.dylib`, with no non-system dependency. `strings` found no repository or Cargo target path in the executable.
 
+The same fixture was built on Linux x64 and copied by itself into an otherwise empty temporary runtime location. Its host operation returned `platform: linux` and `nativeProbeAnswer: 42`. `ldd` reported only the system ELF loader, libc, and libgcc for the probe, with no non-system dependency.
+
 The clean extension compile took 2.12 seconds; an incremental forced compile took 0.61 seconds; a verified warm-cache lookup took 1.4 milliseconds. The host had Rust 1.97.1, Cargo 1.97.1, and Apple Command Line Tools supplying `cc`, the macOS SDK, `install_name_tool`, and `otool`. TypeScript-only builds invoked no Cargo extension build.
 
 ## Automated verification

@@ -73,6 +73,7 @@ That last point is the example's own choice, not a limit Crumb imposes. `file-ex
 - [Bun](https://bun.com/) 1.4 or newer
 - A supported native WebView stack
 - Apple Silicon with macOS 13 or newer, or Ubuntu 26.04 x64 with a native Wayland session
+- A stable Rust toolchain with `rustc` and Cargo for clean Linux builds and whenever an application declares a Rust extension; [rustup](https://rustup.rs/) is the recommended installer
 
 Install dependencies and run:
 
@@ -141,7 +142,18 @@ The generated addon is cached after a successful build. If `.build/nativewindow-
 
 Crumb supports Apple Silicon (`arm64`) on macOS 13 or newer and uses the WKWebView included with macOS. A TypeScript-only application needs no separate WebView runtime, Rust toolchain, C compiler, Xcode, or Homebrew package for ordinary development or release builds. The verified host is macOS 26.5.2 arm64 with Bun 1.4.0; the generated executable declares macOS 13.0 as its minimum deployment version.
 
-Declaring a Rust extension adds build-time requirements: a stable Rust toolchain containing `rustc` and Cargo, plus Apple Command Line Tools for the linker, SDK, `install_name_tool`, and release inspection. Install the latter with `xcode-select --install`; the [official Rust installation guide](https://rust-lang.github.io/book/ch01-01-installation.html) likewise identifies a linker/C compiler as required and gives that command for macOS. The probe was verified with Rust 1.97.1 and Command Line Tools at `/Library/Developer/CommandLineTools`; full Xcode and Homebrew are not required.
+Declaring a Rust extension adds build-time requirements: a stable Rust toolchain containing `rustc` and Cargo, plus Apple Command Line Tools for the linker, SDK, `install_name_tool`, and release inspection. [rustup](https://rustup.rs/) is the recommended way to install and update the Rust toolchain; Homebrew is not required. Install both toolchains, follow the `rustup` prompts, and verify them:
+
+```sh
+xcode-select --install
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+. "$HOME/.cargo/env"
+rustup default stable
+rustc --version
+cargo --version
+```
+
+The probe was verified with Rust 1.97.1 and Command Line Tools at `/Library/Developer/CommandLineTools`; full Xcode is not required.
 
 Confirm the machine and runtime before installing dependencies:
 
@@ -171,16 +183,25 @@ Install the runtime and build dependencies on Ubuntu:
 ```sh
 sudo apt install \
   build-essential \
-  cargo \
+  curl \
   libgtk-3-dev \
   libjavascriptcoregtk-4.1-0 \
   libwebkit2gtk-4.1-dev \
   patch \
-  pkg-config \
-  rustc
+  pkg-config
 ```
 
-Crumb forces `GDK_BACKEND=wayland` internally. It will not fall back to X11 or XWayland. Distribution GTK and WebKitGTK packages may still contain dormant links to X11 compatibility libraries; those links are not used as Crumb's display backend.
+Install the stable Rust toolchain with [rustup](https://rustup.rs/) rather than depending on the distribution's potentially older `cargo` and `rustc` packages:
+
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+. "$HOME/.cargo/env"
+rustup default stable
+rustc --version
+cargo --version
+```
+
+Rust is required for a clean Linux build because Crumb compiles its pinned native Wayland binding; the same toolchain also builds any application-declared extensions. Crumb forces `GDK_BACKEND=wayland` internally. It will not fall back to X11 or XWayland. Distribution GTK and WebKitGTK packages may still contain dormant links to X11 compatibility libraries; those links are not used as Crumb's display backend.
 
 ## Build standalone executables
 
@@ -294,28 +315,71 @@ All four are read-only, and `bun run verify:readonly` statically checks the file
 
 ### Rust native extensions
 
-An application can declare an application-owned Rust `cdylib` by logical name. Paths are relative to the repository root; the toolchain derives every target-specific artifact name and location.
+An application can declare an application-owned Rust Node-API `cdylib` by logical name. The complete walkthrough is in [How to build a desktop app with Bun — Add a Rust native extension](docs/how-to-build-a-desktop-app-with-bun.md#8-add-a-rust-native-extension-optional).
+
+Install a stable Rust toolchain with [rustup](https://rustup.rs/) and make sure both commands resolve in the terminal that runs Bun:
+
+```sh
+rustc --version
+cargo --version
+```
+
+Put a starter application's crate under `src/app/native/<name>/`. A registered application under `examples/<app>/` normally owns crates under `examples/<app>/native/<name>/`. The crate must have a valid `Cargo.toml`, produce a `cdylib`, and commit a `Cargo.lock` because Crumb invokes `cargo build --release --locked`.
+
+```toml
+[package]
+name = "my-extension"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "my_extension"
+crate-type = ["cdylib"]
+```
+
+The library must expose Node-API exports that Bun can load. A plain Rust `cdylib` with no Node-API module initializer will compile but cannot be imported as an extension. Start from the dependency-free reference files in [`src/app/native/probe/`](./src/app/native/probe/), including its macOS linker setup in `build.rs`, then replace the example `answer()` export with your implementation. After changing dependencies, regenerate and commit the lockfile:
+
+```sh
+cargo generate-lockfile --manifest-path src/app/native/my-extension/Cargo.toml
+```
+
+Declare source intent in the application's `ApplicationConfig`. Paths are relative to the repository root; do not put `.node`, `.so`, `.dylib`, a target name, or an output path in the declaration. Crumb derives and verifies all target-specific artifact locations.
 
 ```ts
 export const application: ApplicationConfig = {
   // ...window, CSP, entries, and operations...
   nativeExtensions: {
-    probe: "src/app/native/probe",
+    "system-info": "src/app/native/my-extension",
   },
 };
 ```
 
-Crates live with their application: `src/app/native/<name>/` for the starter or `examples/<app>/native/<name>/` for an example. Import a declared extension from trusted host code with the same logical module on every platform:
+Logical names must start with a lowercase letter and contain only lowercase letters, digits, `-`, or `_`. Import the declared extension from trusted host code with the same logical module on every platform. Check its runtime export and normalize the result before returning it through a declared operation:
 
 ```ts
-import probe from "app:ext/probe";
+import systemInfo from "app:ext/system-info";
 
-const answer = probe.answer();
+const readSystemInfo = systemInfo.readSystemInfo;
+if (typeof readSystemInfo !== "function") {
+  throw new Error('Native extension "system-info" does not export readSystemInfo()');
+}
+const result = readSystemInfo();
 ```
 
 The permanent `native-probe` fixture demonstrates the complete shape in [`examples/native-probe/`](./examples/native-probe/) and [`src/app/native/probe/`](./src/app/native/probe/). Its config lazily loads its local handler module so repository tooling can inspect all application configs before selecting and building one.
 
-Extension source is watched during `bun run dev`. A native change compiles the crate and restarts the host process; native code is never replaced inside a running process. UI-only changes reuse the verified artifact. A successful artifact is accepted only when its source fingerprint, extension name, target, architecture, and digest match its provenance metadata. Use `bun run rebuild:extensions --example=<app>` for a forced clean extension rebuild.
+The ordinary commands own the native build; do not run `cargo build` as a separate prerequisite. For the default starter:
+
+```sh
+bun run dev
+bun run rebuild:extensions
+bun run build --target=macos-arm64  # run on Apple Silicon macOS
+bun run build --target=linux-x64    # run on Linux x64
+```
+
+For a named registered application, add `--example=<app>` to the Crumb commands. Cross-compilation is not supported: build each release on its target operating system. Release builds embed every declared extension in the standalone executable and report non-system dynamic libraries introduced by an extension.
+
+Extension source is watched during `bun run dev`. A native change compiles the crate and restarts the host process; native code is never replaced inside a running process. UI-only changes reuse the verified artifact. A successful artifact is accepted only when its source fingerprint, extension name, target, architecture, and digest match its provenance metadata. Use `bun run rebuild:extensions --example=<app>` for a forced clean extension rebuild after changing toolchains, linker settings, or dependencies.
 
 Native extensions are trusted host code. They run in the Bun process with its full operating-system permissions, can read or write files, use the network, and crash or terminate the application. They do not create a WebView-native bridge: page input still reaches native code only through declared operations and their validators.
 
@@ -387,7 +451,7 @@ bun run verify:performance
 bun run verify:readonly
 ```
 
-The current suite contains 90 automated tests and 193 expectations covering filesystem behavior, validation, previews, navigation state, supported platforms, shutdown, extension declarations, cache safety, watching, and the production capability boundary. The performance command briefly opens a native window and closes it automatically. The complete pre-extension suite is verified on macOS 26.5.2 arm64 and Ubuntu 26.04 x64/Wayland; the extension additions are locally verified on macOS arm64 pending the Linux acceptance noted in the change tasks. Fixtures are created only below the operating system's temporary directory and are removed after each run.
+The current suite contains 90 automated tests and 193 expectations covering filesystem behavior, validation, previews, navigation state, supported platforms, shutdown, extension declarations, cache safety, watching, and the production capability boundary. The performance command briefly opens a native window and closes it automatically. The complete suite and the relocated `native-probe` extension journey are verified on macOS arm64 and Ubuntu 26.04 x64/Wayland; both relocated executables returned `nativeProbeAnswer: 42`. Fixtures are created only below the operating system's temporary directory and are removed after each run.
 
 ## Current limitations
 
@@ -420,10 +484,16 @@ echo "$GDK_BACKEND"
 
 ### Native addon fails to build
 
-Check that Rust, Cargo, a C toolchain, `pkg-config`, `patch`, and the GTK/WebKitGTK development packages are installed. Then run:
+Check that `rustc`, Cargo, a C toolchain, `pkg-config`, `patch`, and the GTK/WebKitGTK development packages are installed. If Rust was installed with [rustup](https://rustup.rs/) in the current shell, `. "$HOME/.cargo/env"` makes its commands available. Then run:
 
 ```sh
 bun run build:native
+```
+
+For an application extension, confirm that its `Cargo.toml` declares `crate-type = ["cdylib"]`, its `Cargo.lock` is current, and its repository-relative source directory matches `nativeExtensions`. Force a clean rebuild with:
+
+```sh
+bun run rebuild:extensions --example=native-probe
 ```
 
 ### macOS reports `bad CPU type in executable`

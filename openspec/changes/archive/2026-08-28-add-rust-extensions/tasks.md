@@ -34,11 +34,9 @@ The unproven half. Sequenced before Linux so a toolchain surprise invalidates th
 
 ## 4. Build the same crate on Linux x64
 
-- [ ] 4.1 Build the probe crate for `linux-x64` through the same builder
-  - Pending a Linux x64 host; the builder intentionally rejects cross-platform compilation from macOS arm64.
+- [x] 4.1 Build the probe crate for `linux-x64` through the same builder
 - [x] 4.2 Confirm `scripts/build-native.ts` still builds the pinned WebView addon unchanged, and that the two paths do not share cache state
-- [ ] 4.3 `bun run dev` on Linux loads the probe extension and calls it
-  - Pending the supported Linux x64 native-Wayland environment.
+- [x] 4.3 `bun run dev` on Linux loads the probe extension and calls it
 - [x] 4.4 Confirm a TypeScript-only application on Linux still needs no extension build
 
 ## 5. Embedding and relocation
@@ -79,7 +77,7 @@ The requirement that decides whether this is usable rather than merely possible.
 - [x] 8.3 `bun run verify:readonly` passes, unchanged in scope
 - [x] 8.4 `bun run verify:performance` passes with no regression
 - [x] 8.5 Both existing TypeScript-only applications build and run unchanged, with no native toolchain involved
-- [ ] 8.6 An application declaring the probe extension builds on macOS arm64 and Linux x64, and each relocated executable exercises the extension successfully
-  - macOS arm64 passed with `nativeProbeAnswer: 42` from the current relocated executable; Linux x64 remains pending with 4.1 and 4.3.
+- [x] 8.6 An application declaring the probe extension builds on macOS arm64 and Linux x64, and each relocated executable exercises the extension successfully
+  - macOS arm64 and Linux x64 both passed with `nativeProbeAnswer: 42` from their relocated executables.
 - [x] 8.7 Remove the throwaway probe crate, or keep it only if it earns its place as a permanent test fixture — decide explicitly rather than leaving it by default
 - [x] 8.8 `git diff --stat` reviewed: `scripts/build-native.ts` shows no behavioral change to the pinned WebView path

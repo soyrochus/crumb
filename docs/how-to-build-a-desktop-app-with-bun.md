@@ -24,6 +24,8 @@ bun run dev
 
 On macOS, the system WKWebView is sufficient for ordinary development. Linux also needs the packages listed in [Build and runtime support](./build-and-runtime.md#linux).
 
+The TypeScript-only starter needs no Rust toolchain on macOS. If you add a Rust native extension, install stable Rust with [rustup](https://rustup.rs/) and install Apple Command Line Tools with `xcode-select --install`. Linux uses Rust for Crumb's native Wayland binding as well as for application extensions; [rustup](https://rustup.rs/) is the recommended installer there too.
+
 `bun run dev` opens the starter in a native window. It watches the application and Crumb kit sources; after a save, it rebuilds the interface and restarts the application. WebView developer tools are available in this development mode only.
 
 Use a one-shot launch when a watcher is inconvenient:
@@ -251,7 +253,217 @@ bun run build:ui
 
 This writes `dist/ui.html`. It is a build artifact for inspection, not a page that the release loads from disk.
 
-## 8. Build the standalone executable
+## 8. Add a Rust native extension (optional)
+
+Use a Rust extension when trusted host work needs native performance, an existing native library, or operating-system access that is impractical in TypeScript. Extensions run inside the Bun host process and are reached only from trusted host code. The WebView still calls a declared, validated operation; it never imports or selects native modules itself.
+
+### Install Rust and the platform linker
+
+Install a stable Rust toolchain with [rustup](https://rustup.rs/), then follow its prompts:
+
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+. "$HOME/.cargo/env"
+rustup default stable
+rustc --version
+cargo --version
+```
+
+On Apple Silicon macOS, also install Apple Command Line Tools. They provide the linker, SDK, and release-inspection tools; full Xcode and Homebrew are not required:
+
+```sh
+xcode-select --install
+```
+
+On Linux, install the non-Rust system requirements — the C toolchain, GTK/WebKitGTK development packages, `patch`, and `pkg-config` — from [Build and runtime support](./build-and-runtime.md#linux), and use the `rustup` toolchain above for Rust. Releases are built on their target operating system: macOS arm64 on Apple Silicon macOS, and Linux x64 on Linux. Crumb does not cross-compile native extensions.
+
+### Create a Node-API `cdylib`
+
+For the starter application, put the crate below `src/app/native/`. This dependency-free example exports an `answer()` function returning `42`:
+
+```text
+src/app/native/answer/
+├── Cargo.toml
+├── Cargo.lock
+├── build.rs
+└── src/
+    └── lib.rs
+```
+
+Create `src/app/native/answer/Cargo.toml`:
+
+```toml
+[package]
+name = "desktop-answer"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "desktop_answer"
+crate-type = ["cdylib"]
+
+[profile.release]
+strip = "symbols"
+```
+
+The `cdylib` setting is required. On macOS, Node-API symbols are supplied by Bun when it loads the addon, so `src/app/native/answer/build.rs` must allow those symbols to be resolved dynamically:
+
+```rust
+fn main() {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        println!("cargo:rustc-cdylib-link-arg=-Wl,-undefined");
+        println!("cargo:rustc-cdylib-link-arg=-Wl,dynamic_lookup");
+    }
+}
+```
+
+Add the minimal Node-API module in `src/app/native/answer/src/lib.rs`:
+
+```rust
+#![allow(non_camel_case_types)]
+
+use std::ffi::{c_char, c_void};
+
+type napi_env = *mut c_void;
+type napi_value = *mut c_void;
+type napi_callback_info = *mut c_void;
+type napi_status = i32;
+type napi_callback = Option<unsafe extern "C" fn(napi_env, napi_callback_info) -> napi_value>;
+
+unsafe extern "C" {
+    fn napi_create_int32(env: napi_env, value: i32, result: *mut napi_value) -> napi_status;
+    fn napi_create_function(
+        env: napi_env,
+        utf8name: *const c_char,
+        length: usize,
+        callback: napi_callback,
+        data: *mut c_void,
+        result: *mut napi_value,
+    ) -> napi_status;
+    fn napi_set_named_property(
+        env: napi_env,
+        object: napi_value,
+        utf8name: *const c_char,
+        value: napi_value,
+    ) -> napi_status;
+}
+
+unsafe extern "C" fn answer(env: napi_env, _info: napi_callback_info) -> napi_value {
+    let mut result = std::ptr::null_mut();
+    unsafe { napi_create_int32(env, 42, &mut result) };
+    result
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn napi_register_module_v1(env: napi_env, exports: napi_value) -> napi_value {
+    let name = c"answer";
+    let mut function = std::ptr::null_mut();
+    unsafe {
+        napi_create_function(
+            env,
+            name.as_ptr(),
+            name.to_bytes().len(),
+            Some(answer),
+            std::ptr::null_mut(),
+            &mut function,
+        );
+        napi_set_named_property(env, exports, name.as_ptr(), function);
+    }
+    exports
+}
+```
+
+A native extension must expose a Node-API module initializer such as `napi_register_module_v1`; an ordinary Rust `cdylib` with no Node-API exports cannot be imported by Bun. The permanent [`native-probe`](../src/app/native/probe/) fixture contains these same files as a working reference.
+
+Generate and commit the lockfile. Crumb deliberately builds with `--locked`, so an absent or stale `Cargo.lock` stops the build:
+
+```sh
+cargo generate-lockfile --manifest-path src/app/native/answer/Cargo.toml
+```
+
+### Declare and call the extension
+
+Add `nativeExtensions` to `src/app/app.config.ts`. The key is the stable logical import name; the value is the crate's source directory relative to the repository root:
+
+```ts
+export const starter: ApplicationConfig = {
+  // ...window, CSP, entries, and operations...
+  nativeExtensions: {
+    answer: "src/app/native/answer",
+  },
+};
+```
+
+Declare source only. Do not put `.node`, `.so`, `.dylib`, a target suffix, or a build-output path in this configuration. Logical names must start with a lowercase letter and contain only lowercase letters, digits, `-`, or `_`.
+
+Import the logical module from trusted host code, for example in `src/app/host/handlers.ts`:
+
+```ts
+import answerExtension from "app:ext/answer";
+
+export const handlers = {
+  nativeAnswer(): { answer: number } {
+    const answer = answerExtension.answer;
+    if (typeof answer !== "function") {
+      throw new Error('Native extension "answer" does not export answer()');
+    }
+
+    const value = answer();
+    if (typeof value !== "number") {
+      throw new Error('Native extension "answer" returned an invalid value');
+    }
+    return { answer: value };
+  },
+};
+```
+
+Add a shared operation contract, runtime validator, and `operation(...)` entry exactly as in sections 4 and 5. Validate WebView input before the handler calls native code, and return only serializable values. Never expose a generic native-module name, artifact path, or arbitrary native invocation to the page.
+
+### Develop, rebuild, and release
+
+The normal development command validates the declaration, builds a missing or stale crate, loads it under `app:ext/answer`, and opens the application:
+
+```sh
+bun run dev
+```
+
+Changing Rust source rebuilds the extension and restarts the host process. Native code is never hot-replaced in a running process. A UI-only change reuses the verified native artifact. If compilation fails, Crumb removes the stale loadable artifact and does not start the application with the capability silently missing.
+
+Force a clean extension rebuild after changing the toolchain, linker configuration, or dependencies:
+
+```sh
+bun run rebuild:extensions
+```
+
+Then build on the target operating system:
+
+```sh
+# Apple Silicon macOS
+bun run build --target=macos-arm64
+
+# Linux x64
+bun run build --target=linux-x64
+```
+
+For a separately registered application, add `--example=<name>` to `dev`, `rebuild:extensions`, and `build`. Release compilation embeds every declared extension in the standalone executable and reports any non-system dynamic dependency introduced by the crate. Test the executable after copying it by itself into an otherwise empty directory, and exercise an operation that actually calls each extension; opening the window alone does not prove that an embedded addon works.
+
+### Treat native code as trusted process code
+
+A Rust extension has the Bun process's full operating-system permissions. It can read and write files, use the network, crash the process, or terminate it. `bun run verify:readonly` scans TypeScript only and makes no claim about Rust, so review native code separately.
+
+Do not run long or blocking native work on the window's event-loop path. If an extension owns threads, handles, or other resources, register cleanup from host code:
+
+```ts
+import { registerShutdownHandler } from "../../kit/host/shutdown";
+
+registerShutdownHandler("answer extension", async () => {
+  // Signal native work to stop and await its bounded cleanup here.
+});
+```
+
+Shutdown handlers run once in registration order. Failures are reported without skipping later handlers, and the complete shutdown phase is bounded to three seconds so a hanging extension cannot make the window unclosable.
+
+## 9. Build the standalone executable
 
 Build releases on the operating system they target. Cross-platform release builds are intentionally rejected until the native binding combination has been verified.
 
@@ -276,11 +488,11 @@ bun run build --target=macos-arm64 --output=hello-desktop
 ./dist/hello-desktop-macos-arm64
 ```
 
-The output is a raw executable, not an installer or macOS `.app` bundle. It contains the Bun runtime, host code, bundled interface, and target native binding. It needs no adjacent application files, Bun installation, Node.js installation, source checkout, or local server at runtime. The operating system's native WebView libraries remain platform dependencies.
+The output is a raw executable, not an installer or macOS `.app` bundle. It contains the Bun runtime, host code, bundled interface, target native binding, and every Rust extension declared by the selected application. It needs no adjacent application files, Bun installation, Node.js installation, Rust toolchain, source checkout, or local server at runtime. The operating system's native WebView libraries and any non-system dynamic libraries reported by the extension inspection remain platform dependencies.
 
 Release builds always disable WebView developer tools, regardless of application configuration.
 
-## 9. Add another application without replacing the starter
+## 10. Add another application without replacing the starter
 
 For a second application, copy the `src/app/` shape to a new directory, give it an `ApplicationConfig`, and register it in the repository-level `app.config.ts`:
 
@@ -309,10 +521,11 @@ The flag is called `--example` because the repository ships its worked applicati
 
 ## What happens during a release build
 
-Crumb uses Bun for both build stages:
+Crumb owns all build stages:
 
-1. `Bun.build()` bundles the browser TypeScript, then Crumb inserts the JavaScript and CSS into one HTML document.
-2. `Bun.build({ compile: ... })` compiles the host, shared code, embedded document, native binding, and Bun runtime into the target executable.
+1. Crumb validates every declared native extension, runs `cargo build --release --locked` for missing or stale crates, and verifies each produced artifact.
+2. `Bun.build()` bundles the browser TypeScript, then Crumb inserts the JavaScript and CSS into one HTML document.
+3. `Bun.build({ compile: ... })` compiles the host, shared code, embedded document, native binding, declared extensions, and Bun runtime into the target executable.
 
 At runtime the native shell loads that embedded document directly. There is no frontend deployment, localhost port, background server, or source-tree lookup. That is the central constraint when choosing what to build with Crumb: make the interface a client-side web app, and place privileged or machine-local work behind deliberate validated host operations.
 
