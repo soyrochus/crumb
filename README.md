@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./images/crumb-logo-smaller.png" alt="Crumb logo" width="220">
 
-  <p>The template, toolchain, and documentation for shipping a server-less web app as a desktop app.<br>Bun, TypeScript, and native operating-system WebViews. One window, one executable, no Chromium.</p>
+  <p>The template, toolchain, and documentation for shipping a server-less web app as a desktop app.<br>Bun, TypeScript, optional native Rust extensions, and operating-system WebViews. One window, one executable, no Chromium.</p>
   <p>
     <img alt="Status: alpha" src="https://img.shields.io/badge/status-alpha-f59e0b">
     <img alt="Bun 1.4.0" src="https://img.shields.io/badge/Bun-1.4.0-000000?logo=bun&amp;logoColor=white">
@@ -13,13 +13,15 @@
   </p>
 </div>
 
-Crumb is a template you clone. It gives you a native window, an embedded offline document, a narrow validated bridge between your page and a Bun host, and a build that compiles all of it into one self-contained executable per platform.
+Crumb is a template you clone. It gives you a native window, an embedded offline document, a narrow validated bridge between your page and a Bun host, first-class support for application-owned Rust extensions, and a build that compiles all of it into one self-contained executable per platform.
 
 If you can build your app as a web page that needs no server, Crumb turns it into a desktop application — without shipping Chromium, without starting a local web server, and without asking anyone to install Bun or Node.js beside the finished binary.
 
+When TypeScript is not enough, declare a Rust crate by logical name in your application config and import it from trusted host code as `app:ext/<name>`. The normal `bun run dev` and `bun run build` commands compile, cache, load, watch, and embed it. There is no separate native packaging workflow and no adjacent `.node` file or Rust toolchain beside the finished executable.
+
 The three-pane file browser in the screenshots below is **not** Crumb. It is `file-explorer`, a worked example that proves the template works. It lives in `examples/` and stays out of your way — run it with `bun run dev --example=file-explorer`.
 
-Crumb is built on [Bun](https://bun.com/) and is, in passing, a practical exploration of Bun as an application toolchain: package management, direct TypeScript execution, browser bundling, automated testing, Node-API compatibility, and compilation into standalone executables.
+Crumb is built on [Bun](https://bun.com/) and is, in passing, a practical exploration of Bun as an application toolchain: package management, direct TypeScript execution, browser bundling, automated testing, Node-API compatibility, Cargo orchestration for Rust extensions, and compilation into standalone executables.
 
 > [!IMPORTANT]
 > Linux x64 on native Wayland and macOS arm64 are verified. X11 and XWayland are not supported. The executables Crumb produces are currently unsigned and are not packaged as installers or macOS `.app` bundles.
@@ -30,8 +32,9 @@ Crumb is built on [Bun](https://bun.com/) and is, in passing, a practical explor
 - Your HTML, CSS, and JavaScript embedded in the executable, loaded without a local server, a network request, or a lookup in the source tree
 - A narrow bridge between page and host: only the operations your app declares are reachable, each validated at runtime and each returning a serializable result or a normalized error
 - A restrictive Content Security Policy by default, blocking remote connections, frames, object embedding, forms, and unintended navigation
-- A two-stage build that bundles the UI into a single artifact and compiles it, your host code, and the Bun runtime into one self-contained executable per target
-- An executable that runs from an empty directory with no Bun, Node.js, npm, source tree, or adjacent application files
+- Optional Rust extensions declared by logical name, automatically compiled with Cargo, watched during development, cached safely per source and target, and imported through stable `app:ext/<name>` modules
+- A release build that bundles the UI and compiles it, your host code, every declared Rust extension, and the Bun runtime into one self-contained executable per target
+- An executable that runs from an empty directory with no Bun, Node.js, npm, Rust toolchain, source tree, adjacent native addon, or other application file
 - No telemetry, settings database, or persistent application state of any kind
 
 ## The file-explorer example
@@ -84,7 +87,15 @@ bun run dev
 
 A window opens showing the **starter** — a minimal application in `src/app/`: one page, one declared operation, and a button that calls the Bun host. It is about forty lines you can read in full before changing anything, and it is what you edit to build your own app.
 
-For a step-by-step walkthrough of the application structure, browser-to-host bridge, development loop, and standalone release build, see [How to build a desktop app with Bun](docs/how-to-build-a-desktop-app-with-bun.md).
+For a step-by-step walkthrough of the application structure, browser-to-host bridge, Rust extensions, development loop, and standalone release build, see [How to build a desktop app with Bun](docs/how-to-build-a-desktop-app-with-bun.md).
+
+To see the complete Rust path — declaration, automatic Cargo build, logical import, host operation, and embedded release fixture — run:
+
+```sh
+bun run dev --example=native-probe
+```
+
+This requires the Rust and platform linker setup documented under [Rust native extensions](#rust-native-extensions).
 
 To see something substantial, run the worked example:
 
