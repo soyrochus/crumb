@@ -103,6 +103,11 @@ Crumbbrot was created as the end-to-end exercise for Crumb's three shipped agent
 
 The example supports cursor-centered zoom, drag-to-pan navigation, bounded iteration controls, configurable Julia parameters, coalesced render requests, obsolete-result rejection, and shutdown cancellation. Its Linux x64 addon and standalone executable have been built and exercised; the crate includes the required macOS arm64 linker configuration, but that target has not yet been verified for this example.
 
+<figure>
+  <img src="images/crumbbrot-linux.png" alt="The Crumbbrot example running on Linux">
+  <figcaption>The <code>crumbbrot</code> example on Linux</figcaption>
+</figure>
+
 ## Quick start
 
 ### Requirements
