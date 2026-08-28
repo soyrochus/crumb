@@ -59,6 +59,16 @@ bun run dev --example=file-explorer
 
 That last point is the example's own choice, not a limit Crumb imposes. `file-explorer` restricts itself to inspection and bounded reads because that keeps a file browser simple and auditable, and `bun run verify:readonly` enforces it. An app you build on Crumb may read and write freely.
 
+<figure>
+  <img src="images/file-explorer-macos.png" alt="The file-explorer example running on macOS">
+  <figcaption>The <code>file-explorer</code> example on macOS</figcaption>
+</figure>
+
+<figure>
+  <img src="images/file-explorer-linux.png" alt="The file-explorer example running on Linux">
+  <figcaption>The <code>file-explorer</code> example on Linux</figcaption>
+</figure>
+
 ## The activity-monitor native-extension example
 
 `examples/activity-monitor/` is the complete worked example for Crumb's Rust path. Its HTML, CSS, and TypeScript remain a conventional client-side interface; an application-owned `system-monitor` crate uses `sysinfo` and `napi-rs` to collect live system and process information asynchronously. Trusted host handlers import it as `app:ext/system-monitor`, normalize its structured output, and expose only three validated, read-only operations to the page.
@@ -72,13 +82,8 @@ The example shows CPU and memory totals, load averages, a sortable process list,
 Building this example requires stable Rust and Cargo; [rustup](https://rustup.rs/) is the recommended installer. The Linux x64 implementation and standalone build are verified. The source is written for Linux and macOS, but the activity-monitor-specific macOS arm64 artifact and relocation check is deferred.
 
 <figure>
-  <img src="images/screenshot-macos.png" alt="The file-explorer example running on macOS">
-  <figcaption>The <code>file-explorer</code> example on macOS</figcaption>
-</figure>
-
-<figure>
-  <img src="images/screenshot-linux.png" alt="The file-explorer example running on Linux">
-  <figcaption>The <code>file-explorer</code> example on Linux</figcaption>
+  <img src="images/activity-monitor-linux.png" alt="The activity-monitor example running on Linux">
+  <figcaption>The <code>activity-monitor</code> example on Linux</figcaption>
 </figure>
 
 ## Quick start
