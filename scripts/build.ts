@@ -10,11 +10,13 @@ const requested = (Bun.argv.find((argument) => argument.startsWith("--target="))
   ?? (process.platform === "darwin" ? "macos-arm64" : "linux-x64")) as TargetName;
 let application;
 let outputName: string;
+let selectedName: string;
 try {
   const selected = selectedApplicationName(Bun.argv);
   application = resolveApplication(registry, selected);
   // The artifact is named after the selected application unless overridden.
-  outputName = selectedOutputName(Bun.argv) ?? selected ?? registry.default;
+  selectedName = selected ?? registry.default;
+  outputName = selectedOutputName(Bun.argv) ?? selectedName;
   outputPath(outputName, "check");
 } catch (error: unknown) {
   if (error instanceof UnknownApplicationError || error instanceof MissingApplicationNameError || error instanceof InvalidOutputNameError) {
@@ -46,6 +48,8 @@ const embedPlugin: BunPlugin = {
   name: "embed-app-runtime",
   setup(build) {
     build.onResolve({ filter: /^app:ui$/ }, () => ({ path: "app:ui", namespace: "app" }));
+    build.onResolve({ filter: /^app:selection$/ }, () => ({ path: "app:selection", namespace: "app-selection" }));
+    build.onLoad({ filter: /.*/, namespace: "app-selection" }, () => ({ contents: `export default ${JSON.stringify(selectedName)}`, loader: "js" }));
     build.onLoad({ filter: /.*/, namespace: "app" }, () => ({ contents: `export default ${JSON.stringify(html)}`, loader: "js" }));
     build.onResolve({ filter: /^app:native$/ }, () => ({ path: "native-window-wrapper", namespace: "app-native" }));
     build.onLoad({ filter: /.*/, namespace: "app-native" }, () => ({

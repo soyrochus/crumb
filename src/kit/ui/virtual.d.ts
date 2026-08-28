@@ -1,3 +1,9 @@
+declare module "app:selection" {
+  /** Name of the application chosen at build time. */
+  const name: string;
+  export default name;
+}
+
 declare module "app:ui" {
   const html: string;
   export default html;

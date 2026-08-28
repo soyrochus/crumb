@@ -80,7 +80,7 @@ The riskiest step. Get a plain run working before any watcher exists, so a virtu
 - [x] 8.2 `bun run typecheck` passes
 - [x] 8.3 `bun run verify:readonly` passes, scanning the explorer and not the minimal application
 - [x] 8.4 `bun run verify:performance` passes with no regression beyond noise
-- [x] 8.5 Both applications build on macOS arm64; the minimal one runs from an empty directory
+- [x] 8.5 Both applications build on macOS arm64; **each** runs from an empty directory. Originally this only exercised the starter, which let a real regression through: the build embedded the selected application's UI while `main.ts` resolved the registry *default*, so `--example=file-explorer` produced a binary showing the explorer's page wired to the starter's operations — every call rejected as undeclared. Fixed with an `app:selection` virtual module supplying the build-time choice; guarded by `test/kit/build-time-selection.test.ts`
 - [x] 8.6 A release executable has DevTools disabled
 - [x] 8.7 CI green on both supported targets
 - [x] 8.8 A fresh clone, `bun install`, `bun run dev` opens the minimal application, and its complete source reads in one sitting
