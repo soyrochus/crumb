@@ -43,22 +43,24 @@ rather than moving it into a clone. From a Crumb clone:
 bun run extract -- --dest /path/to/your-project
 ```
 
-This stages Crumb's template-owned machinery into `your-project/crumb-source/` —
-the kit, the full build and development pipeline, the native binding patch,
-`main.ts`, `tsconfig.json`, the Crumb agent skills and their installed copies,
-and the template `docs/` — together with `fragments/` for the parts that must be
-merged (`package.json` keys, `.gitignore` lines, the application registry) and a
-`MERGE.md` checklist. It writes nowhere else in the target and never modifies
-the clone; `--dry-run` previews and `--force` re-stages.
+This does two things. It stages Crumb's template-owned machinery into
+`your-project/crumb-source/` — the kit, the full pipeline, the native binding
+patch, `main.ts`, `tsconfig.json`, the Crumb skills, and the template `docs/` —
+with `fragments/` for the parts that must be merged (`package.json` keys,
+`.gitignore` lines, the registry) and a `MERGE.md` checklist. And it installs
+the Crumb skills into `your-project/.claude/skills/` (and `.codex/`, `.github/`).
+Outside `crumb-source/` it only ever adds those `crumb-` skill directories — no
+existing file is modified, and the clone is never touched. `--dry-run` previews;
+`--force` re-stages.
 
-Applying `crumb-source/` into the project is a separate, deliberate step. Follow
-`MERGE.md` in order, or hand the job to a coding assistant with the
-`crumb-adopt-existing-project` skill, which the extract stages for you. Once
-applied, the project is a self-contained Crumb template: every command in this
-guide — `bun run dev`, `build`, `build:native`, `install:skills`, `extract`,
-`bun test`, `bun run typecheck` — works in it with no reference back to the
-clone. The rest of this guide then applies unchanged: your interface goes in
-`src/app/`, and the sections below describe how it is built and shipped.
+Then open a coding assistant in the project and ask it to adopt Crumb. The
+`crumb-adopt-existing-project` skill is already installed; it assesses the
+project and applies `crumb-source/` — or proposes a migration, or explains why
+the project will not fit. `MERGE.md` is the same checklist for doing it by hand.
+Once applied, every command in this guide — `bun run dev`, `build`,
+`build:native`, `install:skills`, `extract`, `bun test`, `bun run typecheck` —
+works in the project with no reference back to the clone, and the rest of this
+guide applies unchanged: your interface goes in `src/app/`.
 
 ## 2. Know which files are yours
 

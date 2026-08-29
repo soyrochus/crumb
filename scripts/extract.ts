@@ -1,9 +1,11 @@
 /**
  * Extracts Crumb's template-owned machinery from this clone into an existing
- * external project. It writes only into `<dest>/crumb-source/` — a staging
- * directory the developer (or the `crumb-adopt-existing-project` skill) then
- * applies by hand — and never touches this clone or any file the target
- * already has.
+ * external project. It stages an inert `<dest>/crumb-source/` and additionally
+ * installs the Crumb assistant skills into `<dest>/.claude/skills/` (and
+ * `.codex/`, `.github/`) so an assistant opened in the target can run the
+ * `crumb-adopt-existing-project` skill straight away. It never touches this
+ * clone, and outside `crumb-source/` it only ever adds `crumb-` skill
+ * directories — no existing file is modified or removed.
  *
  *   bun run extract -- --dest <path> [--dry-run] [--force]
  *
@@ -15,6 +17,13 @@
  */
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import {
+  discoverSkills,
+  installSkills,
+  listSkills,
+  SUPPORTED_ASSISTANTS,
+  type InstallEntry,
+} from "./install-skills";
 
 /** A root the extract copies wholesale. Directories are copied recursively. */
 export interface AllowlistEntry {
@@ -311,24 +320,26 @@ export function mergeInstructions(source: { version: string; sha: string }): str
 
 Extracted from Crumb ${source.version} (${source.sha}).
 
-This directory is inert. It is not a runnable Crumb project — there is no
-src/app/ and your package.json has not been merged. Apply it into your project
-with the steps below.
+This directory is inert — no src/app/, and your package.json has not been
+merged. Applying it is the next step.
+
+## The short path: let an assistant do it
+
+The extract already installed the Crumb skills into this project's
+\`.claude/skills/\`, \`.codex/skills/\`, and \`.github/skills/\`. Open your coding
+assistant in this project and ask it to adopt Crumb. It runs the
+\`crumb-adopt-existing-project\` skill, which assesses the project and then
+applies \`crumb-source/\` — or proposes a staged migration, or explains why the
+project will not fit Crumb.
+
+## The manual path: apply it by hand
+
+${steps}
 
 Once applied, the project is a self-contained Crumb template: every Crumb
 command works locally (bun run dev, build, build:native, build:ui,
 rebuild:extensions, install:skills, extract, test, typecheck) with nothing
 referring back to the clone this was taken from.
-
-To have a coding assistant do the merge, use the \`crumb-adopt-existing-project\`
-skill. It is staged here at skills/crumb-adopt-existing-project/ and at
-.claude/skills/, .codex/skills/, .github/skills/ — moving the tree in step 1
-puts it where your assistant reads it, and \`bun run install:skills\` refreshes
-those copies afterwards.
-
-## Steps
-
-${steps}
 
 ## Notes
 
@@ -339,6 +350,9 @@ ${steps}
 - The staged test/kit/ covers the kit itself. The kit tests that assert against
   Crumb's own example registry are not included; add your own registry tests
   under test/ as needed.
+- The \`.claude/\`, \`.codex/\`, and \`.github/skills/\` directories were created by
+  the extract and hold only Crumb's \`crumb-\` skills; delete the ones for
+  assistants you do not use.
 - docs/ is Crumb's template documentation — how to build and ship with Crumb —
   not documentation of your application.
 - The full walkthrough is docs/how-to-build-a-desktop-app-with-bun.md.
@@ -473,6 +487,34 @@ export async function runExtract(
     };
   }
 
+  // Install the Crumb skills into the target's assistant directories so an
+  // assistant opened there can run crumb-adopt-existing-project immediately.
+  // This is the one write outside crumb-source/: additive, crumb- namespaced,
+  // via the same installer `bun run install:skills` uses.
+  let skillLines: string[];
+  try {
+    const skills = await discoverSkills(root);
+    if (args.dryRun) {
+      const would = listSkills(skills, SUPPORTED_ASSISTANTS);
+      skillLines = would.map((entry) => `  would-install ${entry.path}`);
+      skillLines.push(`Would install ${would.length} skill file(s) into ${args.dest}/{.claude,.codex,.github}/skills/.`);
+    } else {
+      const installed: InstallEntry[] = await installSkills(skills, SUPPORTED_ASSISTANTS, destReal);
+      const changed = installed.filter((entry) => entry.outcome !== "unchanged");
+      skillLines = changed.map((entry) => `  ${entry.outcome.padEnd(10)} ${entry.path}`);
+      skillLines.push(
+        `Installed ${skills.length} skill(s) (${installed.length} file(s), ${changed.length} changed) into ${args.dest}/{.claude,.codex,.github}/skills/.`,
+      );
+    }
+  } catch (error: unknown) {
+    return {
+      exitCode: 1,
+      lines: [
+        `Staged ${STAGING_DIRNAME}/ but failed to install the Crumb skills: ${error instanceof Error ? error.message : String(error)}`,
+      ],
+    };
+  }
+
   for (const entry of staged) lines.push(`  ${entry.outcome.padEnd(10)} ${STAGING_DIRNAME}/${entry.path}`);
 
   const counts = staged.reduce<Record<string, number>>((totals, entry) => {
@@ -485,6 +527,9 @@ export async function runExtract(
       ? `Would stage ${staged.length} file(s) into ${join(args.dest, STAGING_DIRNAME)}/ (${summary}).`
       : `Staged ${staged.length} file(s) into ${join(args.dest, STAGING_DIRNAME)}/ (${summary}).`,
   );
+
+  lines.push("", "Assistant skills:");
+  lines.push(...skillLines);
 
   lines.push("", "Next steps (also written to MERGE.md):");
   MERGE_STEPS.forEach((step, index) => lines.push(`  ${index + 1}. ${step.title}`));

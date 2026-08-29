@@ -173,9 +173,9 @@ If you already have a web application in its own repository, you do not have to 
 bun run extract -- --dest /path/to/your-project
 ```
 
-This stages everything template-owned into `your-project/crumb-source/` — the kit, the full build and development pipeline, the native binding patch, `main.ts`, `tsconfig.json`, the Crumb agent skills (and their installed copies), and the template `docs/`. Once you apply it, the project is a self-contained Crumb template: every Crumb command works locally — `bun run dev`, `build`, `install:skills`, `extract`, and the rest — with nothing referring back to the clone it came from. The command never writes anywhere else in your project and never modifies the clone. `--dry-run` previews the plan; `--force` re-stages over an existing `crumb-source/`.
+This does two things: it stages everything template-owned into `your-project/crumb-source/` (the kit, the full build and development pipeline, the native binding patch, `main.ts`, `tsconfig.json`, the Crumb agent skills, and the template `docs/`), and it installs the Crumb skills into `your-project/.claude/skills/` (and `.codex/`, `.github/`). Outside `crumb-source/` it only ever adds those `crumb-` skill directories — it never modifies an existing file and never touches the clone. `--dry-run` previews; `--force` re-stages over an existing `crumb-source/`.
 
-Applying the staged files into place is a deliberate second step: `crumb-source/MERGE.md` is the ordered checklist (move the staged tree into place, merge the `package.json` and `.gitignore` fragments, reconcile `tsconfig.json`, shape your interface into `src/app/`, add the registry). To have a coding assistant do it, use the `crumb-adopt-existing-project` skill — the extract stages it into `crumb-source/` for you.
+Then **open your coding assistant in the project and ask it to adopt Crumb.** The `crumb-adopt-existing-project` skill is already installed; it assesses the project and applies `crumb-source/` — merging the tree into place, reconciling `package.json` and `tsconfig.json`, shaping your interface into `src/app/`, and reaching `bun run dev` — or proposes a migration, or explains why the project will not fit. `crumb-source/MERGE.md` has the same steps as a manual checklist. Once applied, every Crumb command works locally with nothing referring back to the clone.
 
 ## Bun in this project
 

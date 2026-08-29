@@ -158,23 +158,63 @@ describe("staging", () => {
     expect(stagedFiles.some((path) => path.includes("openspec-"))).toBe(false);
   });
 
-  test("writes nothing outside crumb-source/ and leaves the target's own files untouched", async () => {
+  test("writes only crumb-source/ and the assistant skill dirs, leaving the target's own files untouched", async () => {
     const dest = await tempDir();
     await writeFile(join(dest, "package.json"), '{ "name": "existing" }\n');
     await writeFile(join(dest, "tsconfig.json"), '{ "mine": true }\n');
 
     await runExtract(["--dest", dest], REPO);
 
-    expect(await readdir(dest)).toEqual(expect.arrayContaining(["crumb-source", "package.json", "tsconfig.json"]));
-    expect((await readdir(dest)).filter((name) => !["crumb-source", "package.json", "tsconfig.json"].includes(name))).toEqual([]);
+    const allowed = ["crumb-source", ".claude", ".codex", ".github", "package.json", "tsconfig.json"];
+    expect((await readdir(dest)).filter((name) => !allowed.includes(name))).toEqual([]);
     expect(await readFile(join(dest, "package.json"), "utf8")).toBe('{ "name": "existing" }\n');
     expect(await readFile(join(dest, "tsconfig.json"), "utf8")).toBe('{ "mine": true }\n');
+
+    // The only thing under the assistant dirs is Crumb's own crumb- skills.
+    for (const assistant of [".claude", ".codex", ".github"]) {
+      const skills = await readdir(join(dest, assistant, "skills"));
+      expect(skills.every((name) => name.startsWith("crumb-"))).toBe(true);
+    }
   });
 
   test("never creates a staging directory inside the clone", async () => {
     const dest = await tempDir();
     await runExtract(["--dest", dest], REPO);
     expect(await pathExists(join(REPO, STAGING_DIRNAME))).toBe(false);
+  });
+});
+
+describe("assistant skill bootstrap", () => {
+  test("installs the Crumb skills into the target's assistant directories", async () => {
+    const dest = await tempDir();
+    const result = await runExtract(["--dest", dest], REPO);
+    expect(result.exitCode).toBe(0);
+
+    for (const assistant of [".claude", ".codex", ".github"]) {
+      expect(await pathExists(join(dest, assistant, "skills/crumb-adopt-existing-project/SKILL.md"))).toBe(true);
+      expect(await pathExists(join(dest, assistant, "skills/crumb-add-operation/SKILL.md"))).toBe(true);
+    }
+    expect(result.lines.join("\n")).toContain("Assistant skills:");
+  });
+
+  test("leaves a non-Crumb skill in the target untouched", async () => {
+    const dest = await tempDir();
+    await mkdir(join(dest, ".claude/skills/my-own-skill"), { recursive: true });
+    await writeFile(join(dest, ".claude/skills/my-own-skill/SKILL.md"), "mine\n");
+
+    await runExtract(["--dest", dest], REPO);
+
+    expect(await readFile(join(dest, ".claude/skills/my-own-skill/SKILL.md"), "utf8")).toBe("mine\n");
+    expect(await pathExists(join(dest, ".claude/skills/crumb-adopt-existing-project/SKILL.md"))).toBe(true);
+  });
+
+  test("--dry-run installs no skill files but still reports them", async () => {
+    const dest = await tempDir();
+    const result = await runExtract(["--dest", dest, "--dry-run"], REPO);
+
+    expect(result.exitCode).toBe(0);
+    expect(await readdir(dest)).toEqual([]);
+    expect(result.lines.join("\n")).toContain("Would install");
   });
 });
 

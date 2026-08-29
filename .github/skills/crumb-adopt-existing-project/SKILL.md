@@ -21,6 +21,11 @@ developer to approve, or say it is not feasible. Never leave a half-merged
 `package.json` or a project that builds the wrong thing. Work on a branch, under
 the developer's version control, and leave changes staged for review.
 
+You are most likely running because `bun run extract` installed this skill into
+the project. If `crumb-source/` is not in the project root, have the developer
+run `bun run extract -- --dest <project>` from a Crumb clone first, then start
+here.
+
 ## Step 1 — assess before touching anything
 
 Read the project. Answer these:
