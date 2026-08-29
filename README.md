@@ -177,6 +177,10 @@ This does two things: it stages everything template-owned into `your-project/cru
 
 Then **open your coding assistant in the project and ask it to adopt Crumb.** The `crumb-adopt-existing-project` skill is already installed; it assesses the project and applies `crumb-source/` — merging the tree into place, reconciling `package.json` and `tsconfig.json`, shaping your interface into `src/app/`, and reaching `bun run dev` — or proposes a migration, or explains why the project will not fit. `crumb-source/MERGE.md` has the same steps as a manual checklist. Once applied, every Crumb command works locally with nothing referring back to the clone.
 
+#### Migration case study: Brainflip
+
+[Brainflip](https://github.com/soyrochus/brainflip) — a Concentration-style memory game that shipped with Node/Express and Python/Flask backends — was migrated to Crumb this way. The whole migration ran automatically in Claude Code (Opus 5): `bun run extract` against the Brainflip checkout, then a single "adopt Crumb into this project" instruction. The assistant assessed the project, merged the pipeline (renaming the Express scripts), replaced the `/api/scores` REST calls with two validated host operations backed by a local file, embedded the card art, vendored Tailwind, and reached a running `bun run dev` and a standalone executable — with no hand edits. The full walkthrough is [`specs/migrate-brainflip-to-crumb.md`](specs/migrate-brainflip-to-crumb.md).
+
 ## Bun in this project
 
 [Bun](https://bun.com/) is more than the runtime your app happens to sit on — it is the whole toolchain Crumb is built from. Every stage below is Bun doing a job that would otherwise need a separate tool:
