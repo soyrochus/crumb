@@ -123,6 +123,6 @@ genuine gap worth raising, not a step to take quietly.
 Section 10 of
 [`docs/how-to-build-a-desktop-app-with-bun.md`](../../docs/how-to-build-a-desktop-app-with-bun.md)
 covers registration and selection, and section 6 covers the security policy; the
-requirements under [`openspec/specs/`](../../openspec/specs/) are normative.
+requirements under [`openspec/specs/`](https://github.com/soyrochus/crumb/tree/main/openspec/specs/) are normative.
 Where this skill disagrees with either, they govern and this skill is what gets
 corrected.

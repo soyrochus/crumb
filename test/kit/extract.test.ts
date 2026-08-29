@@ -59,18 +59,32 @@ describe("clone assertion", () => {
 });
 
 describe("planned file set", () => {
-  test("covers the kit, the pipeline, the entry point, and the template tests", async () => {
+  test("covers the kit, the full pipeline, the entry point, the tests, the skills, and the docs", async () => {
     const planned = (await plannedFiles(REPO)).map((file) => file.relative);
     expect(planned).toContain("src/kit/host/main.ts");
     expect(planned).toContain("scripts/dev.ts");
     expect(planned).toContain("scripts/build.ts");
+    expect(planned).toContain("scripts/extract.ts");
+    expect(planned).toContain("scripts/install-skills.ts");
+    expect(planned).toContain("scripts/feasibility.ts");
     expect(planned).toContain("main.ts");
     expect(planned).toContain("tsconfig.json");
     expect(planned).toContain("native/nativewindow-webview-v1.0.6-wayland.patch");
     expect(planned.some((path) => path.startsWith("test/kit/"))).toBe(true);
+    expect(planned).toContain("skills/crumb-adopt-existing-project/SKILL.md");
+    expect(planned).toContain("docs/how-to-build-a-desktop-app-with-bun.md");
   });
 
-  test("excludes the extract itself and every example-only script", async () => {
+  test("stages the committed installed copies of Crumb's own skills only", async () => {
+    const planned = (await plannedFiles(REPO)).map((file) => file.relative);
+    expect(planned).toContain(".claude/skills/crumb-add-operation/SKILL.md");
+    expect(planned).toContain(".codex/skills/crumb-adopt-existing-project/SKILL.md");
+    expect(planned).toContain(".github/skills/crumb-new-application/SKILL.md");
+    expect(planned.some((path) => path.includes("openspec-"))).toBe(false);
+  });
+
+  test("excludes only the example-verification scripts", async () => {
+    expect([...SCRIPT_EXCLUSIONS].sort()).toEqual(["verify-performance.ts", "verify-readonly.ts"]);
     const planned = (await plannedFiles(REPO)).map((file) => file.relative);
     for (const name of SCRIPT_EXCLUSIONS) {
       expect(planned).not.toContain(`scripts/${name}`);
@@ -85,15 +99,33 @@ describe("planned file set", () => {
     expect(planned).not.toContain("README.md");
   });
 
+  test("omits the kit tests that assert against this repository's own registry", async () => {
+    const planned = (await plannedFiles(REPO)).map((file) => file.relative);
+    expect(planned).toContain("test/kit/platform.test.ts");
+    expect(planned).not.toContain("test/kit/application-registry.test.ts");
+    expect(planned).not.toContain("test/kit/build-time-selection.test.ts");
+    expect(planned).not.toContain("test/kit/native-extension-watch.test.ts");
+  });
+
   test("the allowlist is only template-owned roots", () => {
     expect(ALLOWLIST.map((entry) => entry.path)).toEqual([
       "src/kit",
       "scripts",
+      "skills",
+      "docs",
       "native/nativewindow-webview-v1.0.6-wayland.patch",
       "main.ts",
       "tsconfig.json",
       "test/kit",
     ]);
+  });
+
+  test("no staged skill still points at openspec/specs with a clone-relative path", async () => {
+    const planned = await plannedFiles(REPO);
+    for (const file of planned) {
+      if (!file.relative.endsWith("SKILL.md")) continue;
+      expect(await readFile(file.source, "utf8")).not.toContain("../../openspec/specs/");
+    }
   });
 });
 
@@ -116,9 +148,14 @@ describe("staging", () => {
     expect(await pathExists(join(staged, "fragments/app.config.ts"))).toBe(true);
     expect(await pathExists(join(staged, "MERGE.md"))).toBe(true);
 
+    expect(await pathExists(join(staged, "skills/crumb-adopt-existing-project/SKILL.md"))).toBe(true);
+    expect(await pathExists(join(staged, "docs/how-to-build-a-desktop-app-with-bun.md"))).toBe(true);
+    expect(await pathExists(join(staged, ".claude/skills/crumb-add-operation/SKILL.md"))).toBe(true);
+
     const stagedFiles = await relFilesUnder(staged);
     expect(stagedFiles.some((path) => path.startsWith("src/app/"))).toBe(false);
     expect(stagedFiles.some((path) => path.startsWith("examples/"))).toBe(false);
+    expect(stagedFiles.some((path) => path.includes("openspec-"))).toBe(false);
   });
 
   test("writes nothing outside crumb-source/ and leaves the target's own files untouched", async () => {
@@ -153,7 +190,7 @@ describe("fragments", () => {
     expect(fragment.dependencies).toHaveProperty("@nativewindow/webview");
     expect(fragment.scripts).toHaveProperty("dev");
     expect(fragment.scripts).toHaveProperty("extract");
-    expect(fragment.scripts).not.toHaveProperty("install:skills");
+    expect(fragment.scripts).toHaveProperty("install:skills");
     expect(fragment.scripts).not.toHaveProperty("verify:readonly");
     expect(fragment.scripts).not.toHaveProperty("verify:performance");
   });

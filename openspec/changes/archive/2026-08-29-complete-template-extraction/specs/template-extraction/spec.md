@@ -1,28 +1,4 @@
-# template-extraction Specification
-
-## Purpose
-
-How Crumb's template-owned machinery is extracted from a clone into an existing external project — the `extract` command, the inert `crumb-source/` staging directory it produces, the guarantee that it modifies neither the clone nor the target's existing files, and the guarantee that an applied extract is a self-contained Crumb template with every documented command, skill, and referenced document working locally. Also the assistant skill that performs the per-project merge.
-## Requirements
-### Requirement: Extract command
-The template SHALL provide a command, run from a Crumb clone, that stages every
-template-owned file required to build and run a Crumb application into an
-external target directory. The command SHALL accept the target directory as a
-required argument, SHALL support a preview mode that writes nothing, and SHALL
-fail with a non-zero exit status and a diagnostic message on any error rather
-than partially completing silently.
-
-#### Scenario: Stage into a target directory
-- **WHEN** a developer runs the extract command from a Crumb clone naming an existing external directory as the target
-- **THEN** a `crumb-source/` directory is created inside the target containing the template-owned file set, and the command reports each staged path and the remaining manual steps
-
-#### Scenario: Preview without writing
-- **WHEN** a developer runs the extract command in preview mode
-- **THEN** the command prints the complete plan of what it would stage and what manual steps would remain, and creates and modifies nothing
-
-#### Scenario: Target directory does not exist
-- **WHEN** the extract command is given a target that is not an existing directory
-- **THEN** it fails immediately with a message naming the problem and stages nothing
+## MODIFIED Requirements
 
 ### Requirement: Staged set is the template machinery only
 The staged file set SHALL make the target a self-contained Crumb template: the
@@ -54,30 +30,6 @@ command SHALL fail if any allowlisted path is absent from the clone.
 #### Scenario: The template has been refactored and an allowlisted path is gone
 - **WHEN** the extract command runs against a clone in which an allowlisted path no longer exists
 - **THEN** it fails with a message identifying the missing path and stages nothing
-
-### Requirement: No modification of the clone or of existing target files
-The extract command SHALL NOT write anywhere outside the `crumb-source/`
-directory within the target, and SHALL NOT write anywhere inside the Crumb clone
-it runs from. It SHALL refuse to run when the target resolves to a location
-inside the Crumb clone. An existing non-empty `crumb-source/` in the target
-SHALL stop the command unless the developer explicitly opts in to overwriting,
-and even then only paths the command itself stages SHALL be replaced.
-
-#### Scenario: Existing target files are untouched
-- **WHEN** the extract command stages into a target that already contains its own `package.json`, `tsconfig.json`, `scripts/`, and source tree
-- **THEN** none of those existing files or directories are modified, and all staged content is confined to `crumb-source/`
-
-#### Scenario: The clone is never written to
-- **WHEN** the extract command completes, whether successfully or with an error
-- **THEN** the Crumb clone it ran from has no created, modified, or deleted files
-
-#### Scenario: Target is inside the clone
-- **WHEN** the extract command is given a target directory that is the Crumb clone or a subdirectory of it
-- **THEN** it refuses to run and stages nothing
-
-#### Scenario: Staging directory already exists
-- **WHEN** the target already contains a non-empty `crumb-source/` directory and the developer has not opted in to overwriting
-- **THEN** the command fails with a message explaining how to proceed and stages nothing
 
 ### Requirement: Merge-required content is delivered as fragments and instructions
 The command SHALL deliver content that a target project must combine with its
@@ -148,16 +100,7 @@ reference, consistent with skills being subordinate to the documentation.
 - **WHEN** the skill's guidance conflicts with `MERGE.md` or the how-to guide
 - **THEN** the documentation governs and the skill is corrected
 
-### Requirement: Extraction is documented alongside the clone workflow
-The project documentation SHALL describe the extraction path for bringing Crumb
-into an existing external project, next to the existing clone-based quick start,
-so a developer with a pre-existing web application repository can find it. The
-documentation SHALL name both the `extract` command and the assistant skill that
-applies its output.
-
-#### Scenario: Look for how to add Crumb to an existing project
-- **WHEN** a developer who already has a web application reads the README or the how-to guide
-- **THEN** the extract command and its manual follow-up steps are documented as the supported way to adopt Crumb without moving their project into a clone, and the assistant skill is named as the way to have an agent perform the follow-up
+## ADDED Requirements
 
 ### Requirement: Extracted target is decoupled from the source clone
 Once the staged files are applied, the target SHALL depend on the source clone
@@ -182,4 +125,3 @@ path.
 #### Scenario: Template documentation the skills cite is present
 - **WHEN** a shipped skill in the applied target references the build-and-ship how-to
 - **THEN** that document is present in the target and the reference resolves locally
-

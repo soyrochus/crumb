@@ -24,33 +24,68 @@ export interface AllowlistEntry {
 }
 
 /**
- * Scripts that exist only to verify a worked example, plus the extract itself.
- * A `scripts/<name>` whose basename is here is not staged.
+ * Scripts that only verify a worked example. They `import` from
+ * `examples/file-explorer/`, which the extract does not carry, so a
+ * `scripts/<name>` whose basename is here is not staged.
  */
 export const SCRIPT_EXCLUSIONS: readonly string[] = [
-  "extract.ts",
   "verify-readonly.ts",
   "verify-performance.ts",
-  "feasibility.ts",
-  "install-skills.ts",
 ];
 
-/** The template-owned machinery. Nothing here is application-owned. */
+/**
+ * Kit tests that assert against this repository's own example registry rather
+ * than against the kit — they expect `file-explorer`, `native-probe`, and the
+ * exact shipped application list, so they fail against the trimmed registry an
+ * extracted project has. A `test/kit/<name>` here is not staged.
+ */
+export const TEST_EXCLUSIONS: readonly string[] = [
+  "application-registry.test.ts",
+  "build-time-selection.test.ts",
+  "native-extension-watch.test.ts",
+];
+
+/**
+ * The template-owned machinery. An applied extract is a self-contained Crumb
+ * template: the kit, the full pipeline, the native patch, the entry point, the
+ * TypeScript configuration, the template tests, the shipped skills, and the
+ * documentation the skills reference. Nothing here is application-owned.
+ */
 export const ALLOWLIST: readonly AllowlistEntry[] = [
   { kind: "dir", path: "src/kit" },
   { kind: "dir", path: "scripts" },
+  { kind: "dir", path: "skills" },
+  { kind: "dir", path: "docs" },
   { kind: "file", path: "native/nativewindow-webview-v1.0.6-wayland.patch" },
   { kind: "file", path: "main.ts" },
   { kind: "file", path: "tsconfig.json" },
   { kind: "dir", path: "test/kit" },
 ];
 
+/** Canonical skill source, relative to the repository root. */
+export const SKILL_SOURCE_DIR = "skills";
+
+/**
+ * Where each supported assistant reads installed skills. The committed copies of
+ * Crumb's own skills are staged from here so the target works with an assistant
+ * before anything is run there. Skills another tool installed into these
+ * directories are not Crumb's and are not staged.
+ */
+export const INSTALLED_SKILL_DIRS: readonly string[] = [
+  ".claude/skills",
+  ".codex/skills",
+  ".github/skills",
+];
+
 /** The staging directory created inside the target. */
 export const STAGING_DIRNAME = "crumb-source";
 
-/** Scripts a vendored project should not carry (they need `examples/` or `skills/`). */
+/**
+ * Scripts that cannot function in a target without the worked examples. Only the
+ * example-verification scripts qualify; everything else Crumb ships works in an
+ * applied extract, `install:skills` included.
+ */
 const FRAGMENT_SCRIPT_EXCLUSIONS: readonly string[] = [
-  "install:skills",
   "verify:performance",
   "verify:readonly",
 ];
@@ -90,6 +125,16 @@ async function filesUnder(root: string, directory = root): Promise<string[]> {
   return found.sort((left, right) => left.localeCompare(right));
 }
 
+/** The Crumb-owned skill directory names — every subdirectory of `skills/`. */
+export async function canonicalSkillNames(repositoryRoot: string): Promise<string[]> {
+  const source = resolve(repositoryRoot, SKILL_SOURCE_DIR);
+  const names: string[] = [];
+  for (const entry of await readdir(source, { withFileTypes: true })) {
+    if (entry.isDirectory()) names.push(entry.name);
+  }
+  return names.sort((left, right) => left.localeCompare(right));
+}
+
 /**
  * Fails if any allowlisted path is missing from the clone. A missing entry
  * means the template moved and this script is stale — a hard error, never a
@@ -104,6 +149,19 @@ export async function assertCrumbClone(repositoryRoot: string): Promise<void> {
         `Allowlisted ${entry.kind} "${entry.path}" is not in this clone. `
           + "The template layout changed and scripts/extract.ts is out of date.",
       );
+    }
+  }
+
+  const skillNames = await canonicalSkillNames(repositoryRoot);
+  for (const installedDir of INSTALLED_SKILL_DIRS) {
+    for (const name of skillNames) {
+      const manifest = resolve(repositoryRoot, installedDir, name, "SKILL.md");
+      if (!(await exists(manifest))) {
+        throw new StaleAllowlistError(
+          `Installed skill copy "${posix(join(installedDir, name))}" is missing. `
+            + "Run: bun run install:skills",
+        );
+      }
     }
   }
 }
@@ -127,9 +185,27 @@ export async function plannedFiles(repositoryRoot: string): Promise<PlannedFile[
     for (const nested of await filesUnder(absolute)) {
       const relativePath = posix(join(entry.path, nested));
       if (entry.path === "scripts" && SCRIPT_EXCLUSIONS.includes(nested)) continue;
+      if (entry.path === "test/kit" && TEST_EXCLUSIONS.includes(nested)) continue;
       planned.push({ source: join(absolute, nested), relative: relativePath });
     }
   }
+
+  // The committed installed copies of Crumb's own skills, so the target works
+  // with an assistant immediately. Only the `skills/` names — never a skill
+  // another tool put in these directories.
+  const skillNames = await canonicalSkillNames(repositoryRoot);
+  for (const installedDir of INSTALLED_SKILL_DIRS) {
+    for (const name of skillNames) {
+      const skillRoot = resolve(repositoryRoot, installedDir, name);
+      for (const nested of await filesUnder(skillRoot)) {
+        planned.push({
+          source: join(skillRoot, nested),
+          relative: posix(join(installedDir, name, nested)),
+        });
+      }
+    }
+  }
+
   return planned.sort((left, right) => left.relative.localeCompare(right.relative));
 }
 
@@ -201,12 +277,12 @@ export const registry: ApplicationRegistry = {
 /** The ordered apply steps, each with the symptom of skipping it. */
 export const MERGE_STEPS: readonly { title: string; skipping: string }[] = [
   {
-    title: "Move the staged files into your project root (everything in crumb-source/ except fragments/ and MERGE.md).",
-    skipping: "there is no kit, pipeline, or entry point to build with.",
+    title: "Move the staged tree into your project root — src/kit/, scripts/, native/, test/kit/, skills/, docs/, .claude|.codex|.github/skills/, main.ts, tsconfig.json (everything in crumb-source/ except fragments/ and MERGE.md).",
+    skipping: "the kit, pipeline, skills, or entry point are missing and nothing builds.",
   },
   {
     title: "Merge fragments/package.json into your package.json (type, scripts, dependencies, devDependencies).",
-    skipping: "bun run dev/build are undefined and @nativewindow/webview is not installed.",
+    skipping: "bun run dev/build/install:skills are undefined and @nativewindow/webview is not installed.",
   },
   {
     title: "Append fragments/gitignore to your .gitignore.",
@@ -221,7 +297,7 @@ export const MERGE_STEPS: readonly { title: string; skipping: string }[] = [
     skipping: "main.ts and the dev/build scripts cannot resolve an application.",
   },
   {
-    title: "Run bun install, then bun run dev.",
+    title: "Run bun install, then bun run dev. (bun run install:skills refreshes the assistant skill copies.)",
     skipping: "dependencies are unresolved and the window never opens.",
   },
 ];
@@ -239,9 +315,16 @@ This directory is inert. It is not a runnable Crumb project — there is no
 src/app/ and your package.json has not been merged. Apply it into your project
 with the steps below.
 
-To have a coding assistant do this for you, use the \`crumb-adopt-existing-project\`
-skill (installed into .claude/skills, .codex/skills, and .github/skills by
-\`bun run install:skills\`).
+Once applied, the project is a self-contained Crumb template: every Crumb
+command works locally (bun run dev, build, build:native, build:ui,
+rebuild:extensions, install:skills, extract, test, typecheck) with nothing
+referring back to the clone this was taken from.
+
+To have a coding assistant do the merge, use the \`crumb-adopt-existing-project\`
+skill. It is staged here at skills/crumb-adopt-existing-project/ and at
+.claude/skills/, .codex/skills/, .github/skills/ — moving the tree in step 1
+puts it where your assistant reads it, and \`bun run install:skills\` refreshes
+those copies afterwards.
 
 ## Steps
 
@@ -253,6 +336,11 @@ ${steps}
   A framework build must be adjusted to produce browser code Bun can bundle from
   that one entry.
 - src/kit/ is template-owned; a normal application does not modify it.
+- The staged test/kit/ covers the kit itself. The kit tests that assert against
+  Crumb's own example registry are not included; add your own registry tests
+  under test/ as needed.
+- docs/ is Crumb's template documentation — how to build and ship with Crumb —
+  not documentation of your application.
 - The full walkthrough is docs/how-to-build-a-desktop-app-with-bun.md.
 `;
 }

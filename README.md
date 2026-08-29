@@ -173,9 +173,9 @@ If you already have a web application in its own repository, you do not have to 
 bun run extract -- --dest /path/to/your-project
 ```
 
-This stages every template-owned file Crumb needs — the kit, the build and development pipeline, the native binding patch, `main.ts`, and `tsconfig.json` — into `your-project/crumb-source/`. It never writes anywhere else in your project and never modifies the clone. `--dry-run` previews the plan; `--force` re-stages over an existing `crumb-source/`.
+This stages everything template-owned into `your-project/crumb-source/` — the kit, the full build and development pipeline, the native binding patch, `main.ts`, `tsconfig.json`, the Crumb agent skills (and their installed copies), and the template `docs/`. Once you apply it, the project is a self-contained Crumb template: every Crumb command works locally — `bun run dev`, `build`, `install:skills`, `extract`, and the rest — with nothing referring back to the clone it came from. The command never writes anywhere else in your project and never modifies the clone. `--dry-run` previews the plan; `--force` re-stages over an existing `crumb-source/`.
 
-Applying the staged files into place is a deliberate second step: `crumb-source/MERGE.md` is the ordered checklist (move the machinery into place, merge the `package.json` and `.gitignore` fragments, reconcile `tsconfig.json`, shape your interface into `src/app/`, add the registry). To have a coding assistant do it, use the `crumb-adopt-existing-project` skill (installed by `bun run install:skills`).
+Applying the staged files into place is a deliberate second step: `crumb-source/MERGE.md` is the ordered checklist (move the staged tree into place, merge the `package.json` and `.gitignore` fragments, reconcile `tsconfig.json`, shape your interface into `src/app/`, add the registry). To have a coding assistant do it, use the `crumb-adopt-existing-project` skill — the extract stages it into `crumb-source/` for you.
 
 ## Bun in this project
 

@@ -113,5 +113,5 @@ them into a `DomainError` with a code the page can act on.
 Section 4 of
 [`docs/how-to-build-a-desktop-app-with-bun.md`](../../docs/how-to-build-a-desktop-app-with-bun.md)
 is the authoritative walkthrough, and the requirements under
-[`openspec/specs/`](../../openspec/specs/) are normative. Where this skill
+[`openspec/specs/`](https://github.com/soyrochus/crumb/tree/main/openspec/specs/) are normative. Where this skill
 disagrees with either, they govern and this skill is what gets corrected.

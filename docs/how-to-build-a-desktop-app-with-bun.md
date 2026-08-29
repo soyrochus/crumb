@@ -43,18 +43,22 @@ rather than moving it into a clone. From a Crumb clone:
 bun run extract -- --dest /path/to/your-project
 ```
 
-This stages Crumb's template-owned machinery — the kit, the build and
-development pipeline, the native binding patch, `main.ts`, and `tsconfig.json` —
-into `your-project/crumb-source/`, together with `fragments/` for the parts that
-must be merged (`package.json` keys, `.gitignore` lines, the application
-registry) and a `MERGE.md` checklist. It writes nowhere else in the target and
-never modifies the clone; `--dry-run` previews and `--force` re-stages.
+This stages Crumb's template-owned machinery into `your-project/crumb-source/` —
+the kit, the full build and development pipeline, the native binding patch,
+`main.ts`, `tsconfig.json`, the Crumb agent skills and their installed copies,
+and the template `docs/` — together with `fragments/` for the parts that must be
+merged (`package.json` keys, `.gitignore` lines, the application registry) and a
+`MERGE.md` checklist. It writes nowhere else in the target and never modifies
+the clone; `--dry-run` previews and `--force` re-stages.
 
 Applying `crumb-source/` into the project is a separate, deliberate step. Follow
 `MERGE.md` in order, or hand the job to a coding assistant with the
-`crumb-adopt-existing-project` skill (see step 11). The rest of this guide then
-applies unchanged: your interface goes in `src/app/`, and the sections below
-describe how it is built and shipped.
+`crumb-adopt-existing-project` skill, which the extract stages for you. Once
+applied, the project is a self-contained Crumb template: every command in this
+guide — `bun run dev`, `build`, `build:native`, `install:skills`, `extract`,
+`bun test`, `bun run typecheck` — works in it with no reference back to the
+clone. The rest of this guide then applies unchanged: your interface goes in
+`src/app/`, and the sections below describe how it is built and shipped.
 
 ## 2. Know which files are yours
 
