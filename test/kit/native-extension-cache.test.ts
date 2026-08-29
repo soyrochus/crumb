@@ -1,7 +1,12 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { cp, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+
+// Every test here shells out to `cargo build --release` — some of them more than
+// once. On a slow or loaded CI runner a cold Rust compile alone can approach the
+// 5s default, so give the whole file a compile-sized budget.
+setDefaultTimeout(180_000);
 import { buildNativeExtension, inspectNativeExtensionArtifact, nativeExtensionCacheKey, nativeExtensionCachePaths, nativeTargetIdentity, NativeArtifactMismatchError, type NativeTarget } from "../../scripts/build-extensions";
 import { validateNativeExtensions, type NativeExtensionDeclaration } from "../../scripts/native-extension-config";
 

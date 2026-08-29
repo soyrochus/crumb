@@ -18,6 +18,12 @@ import {
 const REPO = process.cwd();
 const temps: string[] = [];
 
+// plannedFiles walks the whole allowlist (src/kit, scripts, skills, docs,
+// test/kit) plus the installed-skill dirs. Several tests only read the list, so
+// compute it once rather than re-walking the tree for each.
+let plannedCache: Promise<Awaited<ReturnType<typeof plannedFiles>>> | undefined;
+const plannedOnce = () => (plannedCache ??= plannedFiles(REPO));
+
 async function tempDir(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "crumb-extract-"));
   temps.push(dir);
@@ -60,7 +66,7 @@ describe("clone assertion", () => {
 
 describe("planned file set", () => {
   test("covers the kit, the full pipeline, the entry point, the tests, the skills, and the docs", async () => {
-    const planned = (await plannedFiles(REPO)).map((file) => file.relative);
+    const planned = (await plannedOnce()).map((file) => file.relative);
     expect(planned).toContain("src/kit/host/main.ts");
     expect(planned).toContain("scripts/dev.ts");
     expect(planned).toContain("scripts/build.ts");
@@ -76,7 +82,7 @@ describe("planned file set", () => {
   });
 
   test("stages the committed installed copies of Crumb's own skills only", async () => {
-    const planned = (await plannedFiles(REPO)).map((file) => file.relative);
+    const planned = (await plannedOnce()).map((file) => file.relative);
     expect(planned).toContain(".claude/skills/crumb-add-operation/SKILL.md");
     expect(planned).toContain(".codex/skills/crumb-adopt-existing-project/SKILL.md");
     expect(planned).toContain(".github/skills/crumb-new-application/SKILL.md");
@@ -85,14 +91,14 @@ describe("planned file set", () => {
 
   test("excludes only the example-verification scripts", async () => {
     expect([...SCRIPT_EXCLUSIONS].sort()).toEqual(["verify-performance.ts", "verify-readonly.ts"]);
-    const planned = (await plannedFiles(REPO)).map((file) => file.relative);
+    const planned = (await plannedOnce()).map((file) => file.relative);
     for (const name of SCRIPT_EXCLUSIONS) {
       expect(planned).not.toContain(`scripts/${name}`);
     }
   });
 
   test("carries no application-owned source", async () => {
-    const planned = (await plannedFiles(REPO)).map((file) => file.relative);
+    const planned = (await plannedOnce()).map((file) => file.relative);
     expect(planned.some((path) => path.startsWith("src/app/"))).toBe(false);
     expect(planned.some((path) => path.startsWith("examples/"))).toBe(false);
     expect(planned).not.toContain("app.config.ts");
@@ -100,7 +106,7 @@ describe("planned file set", () => {
   });
 
   test("omits the kit tests that assert against this repository's own registry", async () => {
-    const planned = (await plannedFiles(REPO)).map((file) => file.relative);
+    const planned = (await plannedOnce()).map((file) => file.relative);
     expect(planned).toContain("test/kit/platform.test.ts");
     expect(planned).not.toContain("test/kit/application-registry.test.ts");
     expect(planned).not.toContain("test/kit/build-time-selection.test.ts");
@@ -121,7 +127,7 @@ describe("planned file set", () => {
   });
 
   test("no staged skill still points at openspec/specs with a clone-relative path", async () => {
-    const planned = await plannedFiles(REPO);
+    const planned = await plannedOnce();
     for (const file of planned) {
       if (!file.relative.endsWith("SKILL.md")) continue;
       expect(await readFile(file.source, "utf8")).not.toContain("../../openspec/specs/");
