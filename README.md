@@ -165,6 +165,18 @@ bun run dev --example=crumbbrot
 
 Drag the canvas to pan, use the wheel or trackpad to zoom toward the pointer, and switch between Mandelbrot and Julia modes from the toolbar.
 
+### Bring Crumb into an existing project
+
+If you already have a web application in its own repository, you do not have to move it into a Crumb clone. From a Crumb clone, run:
+
+```sh
+bun run extract -- --dest /path/to/your-project
+```
+
+This stages every template-owned file Crumb needs — the kit, the build and development pipeline, the native binding patch, `main.ts`, and `tsconfig.json` — into `your-project/crumb-source/`. It never writes anywhere else in your project and never modifies the clone. `--dry-run` previews the plan; `--force` re-stages over an existing `crumb-source/`.
+
+Applying the staged files into place is a deliberate second step: `crumb-source/MERGE.md` is the ordered checklist (move the machinery into place, merge the `package.json` and `.gitignore` fragments, reconcile `tsconfig.json`, shape your interface into `src/app/`, add the registry). To have a coding assistant do it, use the `crumb-adopt-existing-project` skill (installed by `bun run install:skills`).
+
 ## Bun in this project
 
 [Bun](https://bun.com/) is more than the runtime your app happens to sit on — it is the whole toolchain Crumb is built from. Every stage below is Bun doing a job that would otherwise need a separate tool:
@@ -511,6 +523,7 @@ The patch is stored at [`native/nativewindow-webview-v1.0.6-wayland.patch`](./na
 | `bun run verify:readonly` | Verify the production read-only boundary |
 | `bun run install:skills` | Install the template's agent skills for every supported assistant |
 | `bun run install:skills --check` | Fail if an installed skill copy has drifted from `skills/` |
+| `bun run extract -- --dest <path>` | Stage the template-owned machinery into an existing project's `crumb-source/` |
 
 ## Project structure
 
@@ -541,7 +554,8 @@ Nothing under `src/kit/` imports from `src/app/`, and the kit names no operation
 
 Crumb ships skills for coding assistants, covering the places where a partially
 correct result still builds and runs: declaring a host operation, adding a Rust
-native extension, and registering a second application.
+native extension, registering a second application, and adopting Crumb into an
+existing web-app project.
 
 [`skills/`](skills/) is the canonical source and names no vendor. Install the
 copies each assistant reads with one command:

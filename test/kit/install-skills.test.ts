@@ -249,3 +249,14 @@ describe("--check", () => {
     expect((await runInstaller(["--check"], root)).exitCode).toBe(1);
   });
 });
+
+describe("the shipped skills", () => {
+  test("include crumb-adopt-existing-project with committed copies in sync", async () => {
+    const repo = process.cwd();
+    const names = (await discoverSkills(repo)).map((skill) => skill.name);
+    expect(names).toContain("crumb-adopt-existing-project");
+
+    const result = await runInstaller(["--check"], repo);
+    expect(result.exitCode).toBe(0);
+  });
+});

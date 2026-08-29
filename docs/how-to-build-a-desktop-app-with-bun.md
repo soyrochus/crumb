@@ -34,6 +34,28 @@ Use a one-shot launch when a watcher is inconvenient:
 bun run dev --no-watch
 ```
 
+### Start from an existing project instead
+
+If your web application already lives in its own repository, bring Crumb to it
+rather than moving it into a clone. From a Crumb clone:
+
+```sh
+bun run extract -- --dest /path/to/your-project
+```
+
+This stages Crumb's template-owned machinery — the kit, the build and
+development pipeline, the native binding patch, `main.ts`, and `tsconfig.json` —
+into `your-project/crumb-source/`, together with `fragments/` for the parts that
+must be merged (`package.json` keys, `.gitignore` lines, the application
+registry) and a `MERGE.md` checklist. It writes nowhere else in the target and
+never modifies the clone; `--dry-run` previews and `--force` re-stages.
+
+Applying `crumb-source/` into the project is a separate, deliberate step. Follow
+`MERGE.md` in order, or hand the job to a coding assistant with the
+`crumb-adopt-existing-project` skill (see step 11). The rest of this guide then
+applies unchanged: your interface goes in `src/app/`, and the sections below
+describe how it is built and shipped.
+
 ## 2. Know which files are yours
 
 Build the application in `src/app/`:
