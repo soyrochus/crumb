@@ -4,8 +4,13 @@ use napi::{
 };
 use napi_derive::napi;
 use std::{
+    num::NonZeroUsize,
     panic::{AssertUnwindSafe, catch_unwind},
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        Mutex, PoisonError,
+        atomic::{AtomicU64, Ordering},
+    },
+    thread::{available_parallelism, scope},
 };
 
 const MAX_PIXELS: u64 = 2_000_000;
@@ -123,49 +128,69 @@ fn color(iteration: u32, maximum: u32, magnitude_squared: f64) -> [u8; 4] {
     ]
 }
 
+fn render_row(row: &mut [u8], y: u32, options: &RenderOptions, mode: FractalMode) {
+    let width = f64::from(options.width);
+    let height = f64::from(options.height);
+    let point_imaginary =
+        options.center_y + (f64::from(y) + 0.5 - height / 2.0) * options.scale / width;
+    for x in 0..options.width {
+        let point_real =
+            options.center_x + (f64::from(x) + 0.5 - width / 2.0) * options.scale / width;
+        let (start_real, start_imaginary, constant_real, constant_imaginary) = match mode {
+            FractalMode::Mandelbrot => (0.0, 0.0, point_real, point_imaginary),
+            FractalMode::Julia => (
+                point_real,
+                point_imaginary,
+                options.julia_real,
+                options.julia_imaginary,
+            ),
+        };
+        let (iteration, magnitude_squared) = escape_iterations(
+            start_real,
+            start_imaginary,
+            constant_real,
+            constant_imaginary,
+            options.max_iterations,
+        );
+        let offset = x as usize * 4;
+        row[offset..offset + 4].copy_from_slice(&color(
+            iteration,
+            options.max_iterations,
+            magnitude_squared,
+        ));
+    }
+}
+
 fn render_pixels(options: &RenderOptions, generation: u64) -> Result<Vec<u8>> {
     let mode = validate(options)?;
+    ensure_current(generation)?;
     let byte_count = usize::try_from(u64::from(options.width) * u64::from(options.height) * 4)
         .map_err(|_| unavailable("render buffer is too large"))?;
     let mut pixels = vec![0; byte_count];
-    let width = f64::from(options.width);
-    let height = f64::from(options.height);
+    let stride = options.width as usize * 4;
+    let workers = available_parallelism()
+        .map(NonZeroUsize::get)
+        .unwrap_or(1)
+        .min(options.height as usize);
 
-    for y in 0..options.height {
-        if y % 8 == 0 {
-            ensure_current(generation)?;
-        }
-        let point_imaginary =
-            options.center_y + (f64::from(y) + 0.5 - height / 2.0) * options.scale / width;
-        for x in 0..options.width {
-            let point_real =
-                options.center_x + (f64::from(x) + 0.5 - width / 2.0) * options.scale / width;
-            let (start_real, start_imaginary, constant_real, constant_imaginary) = match mode {
-                FractalMode::Mandelbrot => (0.0, 0.0, point_real, point_imaginary),
-                FractalMode::Julia => (
-                    point_real,
-                    point_imaginary,
-                    options.julia_real,
-                    options.julia_imaginary,
-                ),
-            };
-            let (iteration, magnitude_squared) = escape_iterations(
-                start_real,
-                start_imaginary,
-                constant_real,
-                constant_imaginary,
-                options.max_iterations,
-            );
-            let offset =
-                usize::try_from((u64::from(y) * u64::from(options.width) + u64::from(x)) * 4)
-                    .map_err(|_| unavailable("render offset overflowed"))?;
-            pixels[offset..offset + 4].copy_from_slice(&color(
-                iteration,
-                options.max_iterations,
-                magnitude_squared,
-            ));
-        }
+    // Rows are independent, so workers claim them one at a time instead of taking
+    // fixed blocks: interior rows run to the iteration limit while escaping rows
+    // leave early, and a static split would strand most workers on empty regions.
+    {
+        let rows = Mutex::new(pixels.chunks_mut(stride).enumerate());
+        scope(|scope| {
+            for _ in 0..workers {
+                scope.spawn(|| {
+                    while ensure_current(generation).is_ok() {
+                        let claimed = rows.lock().unwrap_or_else(PoisonError::into_inner).next();
+                        let Some((y, row)) = claimed else { break };
+                        render_row(row, y as u32, options, mode);
+                    }
+                });
+            }
+        });
     }
+
     ensure_current(generation)?;
     Ok(pixels)
 }
@@ -244,6 +269,52 @@ mod tests {
             options.width as usize * options.height as usize * 4
         );
         assert!(pixels.chunks_exact(4).all(|pixel| pixel[3] == 255));
+    }
+
+    fn render_serially(options: &RenderOptions, mode: FractalMode) -> Vec<u8> {
+        let stride = options.width as usize * 4;
+        let mut pixels = vec![0; stride * options.height as usize];
+        for (y, row) in pixels.chunks_mut(stride).enumerate() {
+            render_row(row, y as u32, options, mode);
+        }
+        pixels
+    }
+
+    #[test]
+    fn parallel_rows_match_a_serial_render() {
+        for (mode, kind) in [
+            ("mandelbrot", FractalMode::Mandelbrot),
+            ("julia", FractalMode::Julia),
+        ] {
+            let mut wide = options(mode);
+            wide.width = 257;
+            wide.height = 149;
+            wide.max_iterations = 320;
+            let parallel = render_pixels(&wide, CANCEL_GENERATION.load(Ordering::Acquire)).unwrap();
+            assert_eq!(parallel, render_serially(&wide, kind));
+        }
+    }
+
+    #[test]
+    fn every_row_is_written_exactly_once() {
+        let mut tall = options("mandelbrot");
+        tall.height = 211;
+        let first = render_pixels(&tall, CANCEL_GENERATION.load(Ordering::Acquire)).unwrap();
+        let second = render_pixels(&tall, CANCEL_GENERATION.load(Ordering::Acquire)).unwrap();
+        assert_eq!(first, second);
+        assert!(first.chunks_exact(4).all(|pixel| pixel[3] == 255));
+    }
+
+    // Uses a generation that never matches rather than calling cancel_renders(),
+    // which would bump the shared counter out from under the other tests.
+    #[test]
+    fn a_cancelled_generation_is_refused() {
+        let mut large = options("mandelbrot");
+        large.width = 512;
+        large.height = 512;
+        large.max_iterations = 2_000;
+        let stale = CANCEL_GENERATION.load(Ordering::Acquire).wrapping_sub(1);
+        assert!(render_pixels(&large, stale).is_err());
     }
 
     #[test]
