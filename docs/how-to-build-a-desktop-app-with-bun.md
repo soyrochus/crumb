@@ -116,6 +116,42 @@ Keep the stylesheet link and script tag in this form. Crumb's UI build replaces 
 
 Add any layout and visual design to `src/app/ui/styles.css`. No frontend framework is required. If you introduce one, it must produce browser code that Bun can bundle from the configured `uiScript` entry, and it must not depend on a server at runtime.
 
+### Structure a larger interface
+
+A single `app.ts` is enough for one screen, and that is all the starter ships. Past that point, every worked application in this repository splits `ui/` the same way:
+
+| File | Responsibility | Touches the DOM |
+| --- | --- | --- |
+| `app.ts` | Finds elements, binds events, writes state into the document | Yes |
+| `client.ts` | A typed wrapper over `invoke`, one function per declared operation | No |
+| `state.ts` | View models, derived values, and request coordination | No |
+
+The split exists so the parts worth testing can be tested. `state.ts` holds no element reference, so `bun test` exercises it directly without a WebView, and `app.ts` stays thin enough that little is lost by leaving it untested.
+
+`client.ts` names each operation once, so the rest of the interface never repeats the generic parameters:
+
+```ts
+import { invoke } from "../../kit/ui/bridge";
+import type { AppOperations } from "../shared/contracts";
+
+function call<K extends keyof AppOperations & string>(
+  method: K,
+  input: AppOperations[K]["input"],
+): Promise<AppOperations[K]["output"]> {
+  return invoke<AppOperations, K>(method, input);
+}
+
+export const rpc = {
+  greet: (name: string) => call("greet", { name }),
+};
+```
+
+[`examples/crumbbrot/src/ui/client.ts`](../examples/crumbbrot/src/ui/client.ts) is this file at full size.
+
+### Design within the content security policy
+
+The default policy in section 6 blocks every remote origin, so a Crumb interface has no CDN. Web fonts, icon sets, and images are inlined into `styles.css`, embedded as `data:` URIs, or drawn at runtime — `img-src data:` in the starter policy is what permits the middle option. Treat that as a design constraint from the start rather than discovering it when a font silently fails to load. The build inlines the stylesheet and bundles the script, so nothing sits beside the executable to be fetched later.
+
 ## 4. Declare a typed host operation
 
 Code inside a WebView is untrusted at the host boundary, even when it was bundled with the application. A Crumb operation therefore has four parts:
@@ -247,6 +283,44 @@ The `AppOperations` map keeps the operation name, input, and output typed in bro
 
 Save the file while `bun run dev` is active. Crumb reports the changed source, rebuilds the embedded document, and restarts the native window with the new application.
 
+### Keep the interface responsive
+
+Every `invoke` crosses a process boundary and settles later. An interface that fires one request per input event — a drag, a wheel gesture, a window resize — queues work faster than the host retires it, and a slow reply can land after a newer one and overwrite it with a stale result.
+
+Every worked application solves this the same way, and the pattern is worth copying. At most one request is in flight, only the newest waits behind it, and each request carries a generation number that is re-checked before its result is applied:
+
+```ts
+export class RenderCoordinator {
+  private generation = 0;
+  private active = false;
+  private queued: { generation: number; input: RenderFractalInput } | null = null;
+
+  request(input: RenderFractalInput): void {
+    this.queued = { generation: ++this.generation, input };
+    if (!this.active) void this.drain();
+  }
+
+  private async drain(): Promise<void> {
+    this.active = true;
+    while (this.queued) {
+      const request = this.queued;
+      this.queued = null;
+      const frame = await this.render(request.input);
+      if (request.generation === this.generation) this.onFrame(frame);
+    }
+    this.active = false;
+  }
+}
+```
+
+Intermediate requests are dropped rather than rendered, and a superseded reply is discarded rather than drawn. [Crumbbrot's coordinator](../examples/crumbbrot/src/ui/state.ts) is this class with error handling and a busy-state callback added; the activity monitor applies the same generation check separately to its refresh and to its per-process detail request, so selecting a process cannot be overwritten by an earlier selection. Because the coordinator receives its `render` function as a constructor argument, tests pass a fake one and assert the coalescing behavior with no window open.
+
+### Move large or binary results
+
+The bridge carries JSON text in both directions: the page serializes the input, and the host replies with `JSON.stringify`. A handler cannot return a `Uint8Array`, an `ArrayBuffer`, or a `Blob` and have it arrive as that type — a typed array survives the trip as an object keyed by digits.
+
+Encode binary payloads explicitly on the host and decode them in the page. Crumbbrot returns rendered pixels as base64 and rebuilds an `ImageData` for its canvas. Budget for the cost, because it is paid on every message: base64 adds a third to the payload, and for a 1600×1200 RGBA frame that is 7.68 MB of pixels travelling as 10.24 MB of text, with the page-side decode costing noticeably more than the host-side encode. Where the interface only needs a summary, return the summary rather than the bulk data.
+
 ## 6. Keep the app local and secure
 
 Crumb's default Content Security Policy blocks network connections, remote scripts, forms, frames, object embedding, and unintended navigation. Keep that policy unless the application genuinely needs a wider capability.
@@ -283,271 +357,11 @@ This writes `dist/ui.html`. It is a build artifact for inspection, not a page th
 
 ## 8. Add a Rust native extension (optional)
 
-Use a Rust extension when trusted host work needs native performance, an existing native library, or operating-system access that is impractical in TypeScript. Extensions run inside the Bun host process and are reached only from trusted host code. The WebView still calls a declared, validated operation; it never imports or selects native modules itself.
+Use a Rust extension when trusted host work needs native performance, an existing native library, or operating-system access that is impractical in TypeScript. Extensions run inside the Bun host process and are reached only from trusted host code, through a declared operation exactly like the one in sections 4 and 5. The WebView never imports or selects a native module itself, and Crumb exposes no way for it to try.
 
-### Install Rust and the platform linker
+An extension is an application-owned Node-API `cdylib` crate that you declare by logical name in `app.config.ts`. Crumb compiles it with `cargo build --release --locked`, verifies the artifact, embeds it in the standalone executable, and reports any non-system dynamic dependency it introduces. Rust is optional on macOS for a TypeScript-only application; Linux uses it for Crumb's own native binding regardless.
 
-Install a stable Rust toolchain with [rustup](https://rustup.rs/), then follow its prompts:
-
-```sh
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-. "$HOME/.cargo/env"
-rustup default stable
-rustc --version
-cargo --version
-```
-
-On Apple Silicon macOS, also install Apple Command Line Tools. They provide the linker, SDK, and release-inspection tools; full Xcode and Homebrew are not required:
-
-```sh
-xcode-select --install
-```
-
-On Linux, install the non-Rust system requirements — the C toolchain, GTK/WebKitGTK development packages, `patch`, and `pkg-config` — from [Build and runtime support](./build-and-runtime.md#linux), and use the `rustup` toolchain above for Rust. Releases are built on their target operating system: macOS arm64 on Apple Silicon macOS, and Linux x64 on Linux. Crumb does not cross-compile native extensions.
-
-### Create a Node-API `cdylib`
-
-For the starter application, put the crate below `src/app/native/`. This dependency-free example exports an `answer()` function returning `42`:
-
-```text
-src/app/native/answer/
-├── Cargo.toml
-├── Cargo.lock
-├── build.rs
-└── src/
-    └── lib.rs
-```
-
-Create `src/app/native/answer/Cargo.toml`:
-
-```toml
-[package]
-name = "desktop-answer"
-version = "0.1.0"
-edition = "2024"
-
-[lib]
-name = "desktop_answer"
-crate-type = ["cdylib"]
-
-[profile.release]
-strip = "symbols"
-```
-
-The `cdylib` setting is required. On macOS, Node-API symbols are supplied by Bun when it loads the addon, so `src/app/native/answer/build.rs` must allow those symbols to be resolved dynamically:
-
-```rust
-fn main() {
-    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
-        println!("cargo:rustc-cdylib-link-arg=-Wl,-undefined");
-        println!("cargo:rustc-cdylib-link-arg=-Wl,dynamic_lookup");
-    }
-}
-```
-
-Add the minimal Node-API module in `src/app/native/answer/src/lib.rs`:
-
-```rust
-#![allow(non_camel_case_types)]
-
-use std::ffi::{c_char, c_void};
-
-type napi_env = *mut c_void;
-type napi_value = *mut c_void;
-type napi_callback_info = *mut c_void;
-type napi_status = i32;
-type napi_callback = Option<unsafe extern "C" fn(napi_env, napi_callback_info) -> napi_value>;
-
-unsafe extern "C" {
-    fn napi_create_int32(env: napi_env, value: i32, result: *mut napi_value) -> napi_status;
-    fn napi_create_function(
-        env: napi_env,
-        utf8name: *const c_char,
-        length: usize,
-        callback: napi_callback,
-        data: *mut c_void,
-        result: *mut napi_value,
-    ) -> napi_status;
-    fn napi_set_named_property(
-        env: napi_env,
-        object: napi_value,
-        utf8name: *const c_char,
-        value: napi_value,
-    ) -> napi_status;
-}
-
-unsafe extern "C" fn answer(env: napi_env, _info: napi_callback_info) -> napi_value {
-    let mut result = std::ptr::null_mut();
-    unsafe { napi_create_int32(env, 42, &mut result) };
-    result
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn napi_register_module_v1(env: napi_env, exports: napi_value) -> napi_value {
-    let name = c"answer";
-    let mut function = std::ptr::null_mut();
-    unsafe {
-        napi_create_function(
-            env,
-            name.as_ptr(),
-            name.to_bytes().len(),
-            Some(answer),
-            std::ptr::null_mut(),
-            &mut function,
-        );
-        napi_set_named_property(env, exports, name.as_ptr(), function);
-    }
-    exports
-}
-```
-
-A native extension must expose a Node-API module initializer such as `napi_register_module_v1`; an ordinary Rust `cdylib` with no Node-API exports cannot be imported by Bun. The permanent [`native-probe`](../src/app/native/probe/) fixture contains these same files as a working reference.
-
-Generate and commit the lockfile. Crumb deliberately builds with `--locked`, so an absent or stale `Cargo.lock` stops the build:
-
-```sh
-cargo generate-lockfile --manifest-path src/app/native/answer/Cargo.toml
-```
-
-### Declare and call the extension
-
-Add `nativeExtensions` to `src/app/app.config.ts`. The key is the stable logical import name; the value is the crate's source directory relative to the repository root:
-
-```ts
-export const starter: ApplicationConfig = {
-  // ...window, CSP, entries, and operations...
-  nativeExtensions: {
-    answer: "src/app/native/answer",
-  },
-};
-```
-
-Declare source only. Do not put `.node`, `.so`, `.dylib`, a target suffix, or a build-output path in this configuration. Logical names must start with a lowercase letter and contain only lowercase letters, digits, `-`, or `_`.
-
-Import the logical module from trusted host code, for example in `src/app/host/handlers.ts`:
-
-```ts
-import answerExtension from "app:ext/answer";
-
-export const handlers = {
-  nativeAnswer(): { answer: number } {
-    const answer = answerExtension.answer;
-    if (typeof answer !== "function") {
-      throw new Error('Native extension "answer" does not export answer()');
-    }
-
-    const value = answer();
-    if (typeof value !== "number") {
-      throw new Error('Native extension "answer" returned an invalid value');
-    }
-    return { answer: value };
-  },
-};
-```
-
-Add a shared operation contract, runtime validator, and `operation(...)` entry exactly as in sections 4 and 5. Validate WebView input before the handler calls native code, and return only serializable values. Never expose a generic native-module name, artifact path, or arbitrary native invocation to the page.
-
-### Develop, rebuild, and release
-
-The normal development command validates the declaration, builds a missing or stale crate, loads it under `app:ext/answer`, and opens the application:
-
-```sh
-bun run dev
-```
-
-Changing Rust source rebuilds the extension and restarts the host process. Native code is never hot-replaced in a running process. A UI-only change reuses the verified native artifact. If compilation fails, Crumb removes the stale loadable artifact and does not start the application with the capability silently missing.
-
-Force a clean extension rebuild after changing the toolchain, linker configuration, or dependencies:
-
-```sh
-bun run rebuild:extensions
-```
-
-Then build on the target operating system:
-
-```sh
-# Apple Silicon macOS
-bun run build --target=macos-arm64
-
-# Linux x64
-bun run build --target=linux-x64
-```
-
-For a separately registered application, add `--example=<name>` to `dev`, `rebuild:extensions`, and `build`. Release compilation embeds every declared extension in the standalone executable and reports any non-system dynamic dependency introduced by the crate. Test the executable after copying it by itself into an otherwise empty directory, and exercise an operation that actually calls each extension; opening the window alone does not prove that an embedded addon works.
-
-### Study the complete activity-monitor example
-
-The minimal `answer()` crate above makes the mechanics visible without dependencies. For a realistic application, use [`examples/activity-monitor/`](../examples/activity-monitor/) as the worked reference:
-
-```text
-examples/activity-monitor/
-├── app.config.ts
-├── native/system-monitor/
-│   ├── Cargo.toml
-│   ├── Cargo.lock
-│   ├── build.rs
-│   └── src/lib.rs
-├── src/
-│   ├── host/handlers.ts
-│   ├── shared/{contracts,validators}.ts
-│   └── ui/{index.html,styles.css,app.ts,client.ts,state.ts}
-└── test/
-```
-
-Launch it on Linux x64 from a native Wayland session:
-
-```sh
-bun run dev --example=activity-monitor
-```
-
-The first run validates the `nativeExtensions` declaration and compiles the Rust crate. The crate uses `sysinfo` for system data and `napi-rs` `AsyncTask`s for Node-API promises, so process enumeration runs on Bun's worker pool instead of blocking the window event loop. It returns one structured system snapshot, one whole-process array, and optional per-process detail. A PID that exits during inspection returns `null`, and fields the platform cannot supply are represented as unavailable rather than zero.
-
-The host module imports `app:ext/system-monitor`; the browser does not. Host handlers validate and normalize every native result before `systemSnapshot`, `processList`, or `processDetails` crosses the existing Crumb bridge. Refresh requests cannot overlap, auto-refresh is opt-in at five seconds, and the registered shutdown handler tells in-flight native tasks to stop. The UI exposes no process-control operation.
-
-Run its application and Rust tests directly when changing the example:
-
-```sh
-bun test examples/activity-monitor
-cargo test --manifest-path examples/activity-monitor/native/system-monitor/Cargo.toml --locked
-```
-
-Build the standalone Linux application with:
-
-```sh
-bun run build --example=activity-monitor --target=linux-x64
-./dist/activity-monitor-linux-x64
-```
-
-The Linux x64 addon introduces no non-system dynamic dependency; its observed direct ELF dependencies are the system loader, libc, and libgcc. On the implementation host, the first optimized extension compile took 8.2 seconds, a verified warm-cache lookup took 2.2 milliseconds, and the subsequent selected-application build took 0.18 seconds. These measurements vary by machine.
-
-The current metric record is explicit about platform behavior:
-
-| Metric | Linux x64 | macOS arm64 |
-| --- | --- | --- |
-| Overall CPU, total/used memory, process count | Supplied and verified | Supplied and verified |
-| 1/5/15-minute load average | Supplied and verified | Supplied and verified |
-| Per-process CPU, memory, state, and parent PID | Supplied and verified; parent PID can be unavailable | Supplied and verified; parent PID can be unavailable |
-| Executable path and process timing | Supplied when the OS permits inspection; otherwise unavailable | Supplied when the OS permits inspection; otherwise unavailable |
-
-Optional native values become `null` in the shared application contract and the UI prints **Unavailable**. Zero remains a real measured value.
-
-The addon and executable-only relocation journey are verified on Linux x64 and macOS arm64. On macOS, the addon adds only Apple system dependencies and declares macOS 11.0 as its minimum, below Crumb's macOS 13.0 baseline. A clean local build of all four registered macOS applications with dependency sources cached took 7.90 seconds, including 6.32 seconds for the activity-monitor native compile; the first dependency-fetching compile took 11.14 seconds. The dependency-free `native-probe` remains the smallest cross-platform verification of Crumb's extension mechanism.
-
-### Treat native code as trusted process code
-
-A Rust extension has the Bun process's full operating-system permissions. It can read and write files, use the network, crash the process, or terminate it. `bun run verify:readonly` scans TypeScript only and makes no claim about Rust, so review native code separately.
-
-Do not run long or blocking native work on the window's event-loop path. If an extension owns threads, handles, or other resources, register cleanup from host code:
-
-```ts
-import { registerShutdownHandler } from "../../kit/host/shutdown";
-
-registerShutdownHandler("answer extension", async () => {
-  // Signal native work to stop and await its bounded cleanup here.
-});
-```
-
-Shutdown handlers run once in registration order. Failures are reported without skipping later handlers, and the complete shutdown phase is bounded to three seconds so a hanging extension cannot make the window unclosable.
+The complete walkthrough — toolchain setup, the crate shape, a minimal working module, declaration, the development loop, the two worked examples, and the security posture that native code demands — is in [Rust native extensions](./native-extensions.md).
 
 ## 9. Build the standalone executable
 
@@ -645,4 +459,4 @@ Crumb owns all build stages:
 
 At runtime the native shell loads that embedded document directly. There is no frontend deployment, localhost port, background server, or source-tree lookup. That is the central constraint when choosing what to build with Crumb: make the interface a client-side web app, and place privileged or machine-local work behind deliberate validated host operations.
 
-For platform dependencies, artifact inspection, and isolated-runtime checks, continue with [Build and runtime support](./build-and-runtime.md) and [Release verification](./verification.md).
+For Rust extensions, continue with [Rust native extensions](./native-extensions.md). For platform dependencies, artifact inspection, and isolated-runtime checks, continue with [Build and runtime support](./build-and-runtime.md) and [Release verification](./verification.md).

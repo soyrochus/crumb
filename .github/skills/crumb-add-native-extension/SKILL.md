@@ -162,9 +162,8 @@ Two runtime rules:
 
 ## Beyond the ceremony
 
-Section 8 of
-[`docs/how-to-build-a-desktop-app-with-bun.md`](../../docs/how-to-build-a-desktop-app-with-bun.md)
-covers toolchain setup, the complete `activity-monitor` example, and release
-inspection; the `native-extensions` requirements under
+[`docs/native-extensions.md`](../../docs/native-extensions.md)
+covers toolchain setup, the worked `activity-monitor` and `crumbbrot` examples,
+and release inspection; the `native-extensions` requirements under
 [`openspec/specs/`](https://github.com/soyrochus/crumb/tree/main/openspec/specs/) are normative. Where this skill
 disagrees with either, they govern and this skill is what gets corrected.

@@ -133,7 +133,7 @@ bun run dev
 
 A window opens showing the **starter** — a minimal application in `src/app/`: one page, one declared operation, and a button that calls the Bun host. It is about forty lines you can read in full before changing anything, and it is what you edit to build your own app.
 
-For a step-by-step walkthrough of the application structure, browser-to-host bridge, Rust extensions, development loop, and standalone release build, see [How to build a desktop app with Bun](docs/how-to-build-a-desktop-app-with-bun.md).
+For a step-by-step walkthrough of the application structure, browser-to-host bridge, interface structure, development loop, and standalone release build, see [How to build a desktop app with Bun](docs/how-to-build-a-desktop-app-with-bun.md). Rust extensions continue in [Rust native extensions](docs/native-extensions.md).
 
 To see the complete Rust path — declaration, automatic Cargo build, logical import, host operation, and embedded release fixture — run:
 
@@ -423,7 +423,7 @@ All four are read-only, and `bun run verify:readonly` statically checks the file
 
 ### Rust native extensions
 
-An application can declare an application-owned Rust Node-API `cdylib` by logical name. The complete walkthrough is in [How to build a desktop app with Bun — Add a Rust native extension](docs/how-to-build-a-desktop-app-with-bun.md#8-add-a-rust-native-extension-optional).
+An application can declare an application-owned Rust Node-API `cdylib` by logical name. The complete walkthrough is in [Rust native extensions](docs/native-extensions.md).
 
 Install a stable Rust toolchain with [rustup](https://rustup.rs/) and make sure both commands resolve in the terminal that runs Bun:
 
@@ -548,7 +548,7 @@ scripts/       Development supervisor, runner, native, UI, and build scripts
 native/        Minimal pinned native binding patch
 test/kit/      Template tests: platform, validation, RPC surface, selection,
                and the release developer-tools invariant
-docs/          Build, runtime, and feasibility notes
+docs/          Build walkthrough, native extensions, runtime, and verification notes
 openspec/      Change proposals, design, requirements, and task tracking
 skills/        Canonical, vendor-neutral agent skills; installed copies are generated
 images/        Crumb artwork

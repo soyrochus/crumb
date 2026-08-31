@@ -9,6 +9,57 @@ Supported targets for every release: **Linux x64 on native Wayland** and
 **macOS arm64**. Windows, X11, and XWayland are not supported. Executables are
 unsigned and are not packaged as installers or macOS `.app` bundles.
 
+## [Unreleased]
+
+### Changed
+
+#### Crumbbrot renders across every CPU core
+
+- `examples/crumbbrot/`'s `fractal-renderer` extension now renders rows in
+  parallel on a pool of scoped threads sized by
+  `std::thread::available_parallelism`, using only the standard library — no new
+  dependency and no change to the operation contract or the pixels produced.
+  Workers claim one row at a time rather than taking fixed blocks: rows crossing
+  the interior of the set run to the full iteration limit while rows outside it
+  escape after a few steps, so a static split strands most workers on cheap
+  regions. On a 16-core Linux x64 host the measured viewports improved by 10.4x
+  to 12.2x; a 1600×1200 deep zoom at the 2,000-iteration limit fell from about
+  4.5 seconds to about 0.43 seconds.
+- The cancellation generation is re-checked before every row rather than every
+  eighth row, so `cancelRenders()` interrupts an in-flight render sooner. A panic
+  inside a worker still surfaces through the existing `catch_unwind` guard when
+  the thread scope joins.
+- Three Rust tests added: the parallel render is byte-identical to a serial
+  reference for both fractal modes, every row is written exactly once, and a
+  superseded generation is refused.
+
+#### Documentation restructured
+
+- `docs/native-extensions.md` is new. The complete Rust walkthrough — toolchain
+  setup, crate shape, a minimal working module, declaration, the development
+  loop, the worked examples, and the trusted-code posture — moved out of section
+  8 of `docs/how-to-build-a-desktop-app-with-bun.md`, where it had grown to 41%
+  of a guide that is optional reading for TypeScript-only applications. Section
+  numbering in the guide is unchanged, so existing links and anchors still
+  resolve.
+- The guide gains the interface material it lacked: the `app.ts` / `client.ts` /
+  `state.ts` split that every worked application already uses, designing within
+  the content security policy, coalescing and generation-checked rejection of
+  stale bridge results, and how to move binary payloads across a JSON transport.
+- `crumbbrot` is documented as a worked example for the first time; no guide had
+  referenced it.
+- Compile timings and dependency listings that duplicated `docs/verification.md`
+  were dropped rather than moved, leaving that file the single record.
+
+### Fixed
+
+- `.gitignore` now covers `target/`. Crumb's build scripts redirect Cargo output
+  to `.build/`, so a crate's own `target/` appears only when Cargo or
+  rust-analyzer runs directly in a crate directory — untracked, large, and easy
+  to commit by accident.
+- Corrected the automated-test figures in `README.md`, which still reported 126
+  tests and 336 expectations against a suite that now has 152 and 450.
+
 ## [1.0.1] - 2026-08-29
 
 ### Fixed

@@ -54,7 +54,7 @@ description: Use when adding, changing, or reviewing a host operation a Crumb pa
 A skill is a shortcut to the documented workflow, never a competing
 description of it. Carry the ceremony, the file list, and the invariants — the
 parts that only change when the template's structure changes — and point at
-[`docs/how-to-build-a-desktop-app-with-bun.md`](../docs/how-to-build-a-desktop-app-with-bun.md)
-and the requirements under [`openspec/specs/`](../openspec/specs/) for
-everything else. Where a skill and a specification disagree, the specification
+[`docs/how-to-build-a-desktop-app-with-bun.md`](../docs/how-to-build-a-desktop-app-with-bun.md),
+[`docs/native-extensions.md`](../docs/native-extensions.md), and the
+requirements under [`openspec/specs/`](../openspec/specs/) for everything else. Where a skill and a specification disagree, the specification
 governs and the skill is the thing that gets corrected.

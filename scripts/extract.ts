@@ -355,7 +355,8 @@ referring back to the clone this was taken from.
   assistants you do not use.
 - docs/ is Crumb's template documentation — how to build and ship with Crumb —
   not documentation of your application.
-- The full walkthrough is docs/how-to-build-a-desktop-app-with-bun.md.
+- The full walkthrough is docs/how-to-build-a-desktop-app-with-bun.md, with
+  Rust extensions continued in docs/native-extensions.md.
 `;
 }
 
